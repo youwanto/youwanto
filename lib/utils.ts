@@ -1,6 +1,5 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { ZodError } from "zod"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -16,10 +15,6 @@ export function formatNumberWithDecimal(num: number): string {
   return decimal ? `${int}.${decimal.slice(0, 2)}` : `${int}.00`;
 }
 
-function titleCase(s: string) {
-  return s.replace(/[_\-]/g, ' ')
-          .replace(/\w\S*/g, w => w[0].toUpperCase() + w.slice(1))
-}
 // Format error messages
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function formatError(error: any): string {
