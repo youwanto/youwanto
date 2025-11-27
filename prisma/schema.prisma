@@ -21,7 +21,8 @@ model Product {
   images    String[]
   brand     String
   description String
-  stock     Int
+  styleCode String? // e.g., SKU or style identifier
+  stock     Int // total stock available across all variants
   price     Decimal @default(0) @db.Decimal(12,2)
   currency  String  @default("USD")
   rating    Decimal @default(0) @db.Decimal(3,2)
@@ -31,6 +32,47 @@ model Product {
   banner    String?
   createdAt DateTime @default(now()) @db.Timestamp(6)
   updatedAt DateTime @updatedAt
+
+  variants  ProductVariant[]
+}
+
+model ProductVariant {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId String @db.Uuid
+  
+  sku       String @unique(map: "product_variant_sku_idx")
+  ean       String?
+  size      String?
+  color     String?
+  
+  price     Decimal @db.Decimal(12,2)
+  currency  String  @default("USD")
+  stock     Int // stock for this specific variant
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  updatedAt DateTime @updatedAt
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  rawProducts RawProduct[]
+}
+
+model RawProduct {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  source    String
+  feedBatchId String?
+  rawData   Json @db.Json
+  
+  sku       String
+  styleCode String?
+  productIdFeed String?
+  ean       String?
+
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  updatedAt DateTime @updatedAt
+
+  productVariant ProductVariant? @relation(fields: [productVariantId], references: [id])
+  productVariantId String? @db.Uuid
 }
 
 model User {

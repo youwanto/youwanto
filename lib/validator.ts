@@ -18,6 +18,32 @@ export const insertProductSchema = z.object({
   images: z.array(z.string().url("Invalid image URL")).min(1, "At least one image is required"),
   isFeatured: z.boolean().optional(),
   banner: z.string().nullable(),
+
+  styleCode: z.string().nullable(),
+
+});
+
+export const productVariantSchema = z.object({
+  sku: z.string().min(1, "SKU must be at least 1 character"),
+  ean: z.string().nullable(),
+  color: z.string().nullable(),
+  size: z.string().nullable(),
+  
+  stock: z.coerce.number().min(0, "Stock must be a non-negative number"),
+  price: formatPrice,
+  currency: z.string().length(3, "Currency must be a 3-letter code"),
+
+});
+
+export const RawProductSchema = z.object({
+  source: z.string(),
+  feedBatchId: z.string().nullable(),
+  rawData: z.record(z.string(), z.any()),
+
+  sku: z.string(),
+  styleCode: z.string().nullable(),
+  productIdFeed: z.string().nullable(),
+  ean: z.string().nullable(),
 });
 
 export const signInFormSchema = z.object({
