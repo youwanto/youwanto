@@ -39,6 +39,7 @@ async function main() {
     description: string;
     primaryImg: string;
     gallery: string[];
+    externalUrl: string | null;
 
     sku: string;
     ean: string | null;
@@ -60,6 +61,7 @@ async function main() {
     const name          = parts[1] || 'Unnamed product';
     const sku           = parts[2] || '';
     const category      = parts[3] || 'Uncategorized';
+    const externalUrl   = parts[5] || null;
     const brand         = parts[16] || parts[20] || 'Unknown';
     const styleCode     = parts[19] || null;          // model
     const longDesc      = parts[9] || parts[8] || '';
@@ -122,6 +124,20 @@ async function main() {
 
     // ---- 2) Group into style → items for Product & Variants ----
     const key = styleCode || sku || productIdFeed || name;
+    let productUrl : string | null = externalUrl;
+
+    if (externalUrl && externalUrl.includes("murl=")){
+      try {
+        const urlObj = new URL(externalUrl);
+        const murl = urlObj.searchParams.get("murl");
+        if (murl) {
+          productUrl = decodeURIComponent(murl);
+        }
+      } catch (error) {
+        console.error("Error parsing externalUrl:", externalUrl, error);
+        productUrl = externalUrl;
+      }
+    }
 
     const item: GroupItem = {
       name,
@@ -130,6 +146,8 @@ async function main() {
       description: longDesc,
       primaryImg,
       gallery,
+      externalUrl: productUrl,
+
       sku,
       ean,
       size,
@@ -145,6 +163,12 @@ async function main() {
   }
   console.log(`Parsed ${rawProducts.length} raw feed lines`);
   console.log(`Found ${groups.size} grouped products (by style)`);
+
+  // ---- Clear existing data ----
+  await prisma.productVariant.deleteMany();
+  await prisma.product.deleteMany();
+  await prisma.rawProduct.deleteMany();
+
 
   // ---- Insert RawProduct ----
   await prisma.rawProduct.createMany({
@@ -189,6 +213,7 @@ async function main() {
       price: i.price,
       currency: i.currency,
       isActive: i.stockStatus.toLowerCase() === 'in-stock',
+      externalUrl: i.externalUrl,
     }));
 
     const created = await prisma.product.create({
@@ -207,6 +232,7 @@ async function main() {
         isFeatured: false,
         isActive: anyActive,
         banner: base.primaryImg || null,
+        externalUrl: base.externalUrl,
         variants: {
           create: variantsData,
         },
@@ -222,76 +248,6 @@ async function main() {
 
   console.log(`Seeding done ✅ Products: ${productCount}, Variants: ${variantCount}`);
 }
-  // ---- Optional: clear current Products & Variants before reseeding ----
-  // await prisma.productVariant.deleteMany();
-  // await prisma.product.deleteMany();
-//   const productsData = dataLines.map((line) => {
-//     const parts = line.split('|');
-
-//     const productId   = parts[0] || '';
-//     const name        = parts[1] || 'Unnamed product';
-//     const category    = parts[3] || 'Uncategorized';
-//     const longDesc    = parts[9] || parts[8] || '';
-//     const priceRaw    = parts[13] || '0';
-//     const brand       = parts[16] || parts[20] || 'Unknown';
-//     const stockStatus = parts[22] || '';
-//     const quantityRaw = parts[24] || '0';
-//     const primaryImg  = parts[6] || '';
-//     const galleryRaw  = parts[26] || '';
-
-//     const price = parseFloat(priceRaw) || 0;
-//     const stock = parseInt(quantityRaw, 10) || 0;
-//     const currency = (parts[25] || 'USD').toUpperCase();
-
-//     const galleryImages = galleryRaw
-//       .split(',')
-//       .map(u => u.trim())
-//       .filter(u => u.length > 0);
-
-//     const images = Array.from(
-//       new Set(
-//         [primaryImg, ...galleryImages].filter(u => u && u.length > 0)
-//       )
-//     );
-
-//     const baseSlug = slugify(name);
-//     // add some of productId to avoid collisions
-//     const slug = productId
-//       ? `${baseSlug}-${productId.slice(-6)}`
-//       : baseSlug;
-
-//     const isActive = stockStatus.toLowerCase() === 'in-stock';
-
-//     return {
-//       name,
-//       slug,
-//       category,
-//       images,
-//       brand,
-//       description: longDesc,
-//       stock,
-//       price,
-//       currency,
-//       rating: 0,
-//       numReviews: 0,
-//       isFeatured: false,
-//       isActive,
-//       banner: primaryImg || null,
-//     };
-//   });
-
-//   console.log(`Preparing to insert ${productsData.length} products...`);
-
-//   // Optional: clear the table first
-//   await prisma.product.deleteMany();
-
-//   await prisma.product.createMany({
-//     data: productsData,
-//     skipDuplicates: true, // in case slug unique constraint hits
-//   });
-
-//   console.log('Seeding completed ✅');
-// }
 
 main()
   .catch((e) => {

@@ -30,6 +30,9 @@ model Product {
   isFeatured Boolean  @default(false)
   isActive  Boolean  @default(true)
   banner    String?
+
+  externalUrl String? // link to external product page if applicable
+
   createdAt DateTime @default(now()) @db.Timestamp(6)
   updatedAt DateTime @updatedAt
 
@@ -51,6 +54,8 @@ model ProductVariant {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now()) @db.Timestamp(6)
   updatedAt DateTime @updatedAt
+
+  externalUrl String? // link to external product variant page if applicable
 
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   rawProducts RawProduct[]
