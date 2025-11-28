@@ -13,29 +13,7 @@ const Homepage = async () => {
     }
   );
   // Cast DB objects to your app-level Product type
-  const latestProducts: Product[] = moreLatestProducts.map((p) => ({
-    id: p.id,
-    name: p.name,
-    slug: p.slug,
-    category: p.category,
-    images: p.images,
-    brand: p.brand,
-    description: p.description,
-    styleCode: p.styleCode,
-    stock: p.stock,
-    // Prisma Decimal -> number
-    price: Number(p.price),
-    currency: p.currency,
-    rating: Number(p.rating),
-    numReviews: p.numReviews,
-    isFeatured: p.isFeatured,
-    isActive: p.isActive,
-    banner: p.banner,
-    externalUrl: p.externalUrl,
-    // Dates -> string (if your Product type has them; if not, you can omit)
-    createdAt: p.createdAt.toISOString(),
-    updatedAt: p.updatedAt.toISOString(),
-  }));
+  const latestProducts = moreLatestProducts as Product[];
 
   const nextCursor =
     moreLatestProducts.length > 0
