@@ -18,8 +18,11 @@ export async function getLatestProducts() {
 
 // get single product by slug
 export async function getProductBySlug(slug: string) {
-    const product = await prisma.product.findFirst({
-        where: { slug }
+    const product = await prisma.product.findUnique({
+        where: { slug },
+        include:{
+            variants: true,
+        }
     });
     return convertToPlainObject(product);
 }
