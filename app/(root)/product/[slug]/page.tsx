@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import AddToCart from "@/components/shared/product/add-to-cart";
 import { Button } from "@/components/ui/button";
 import { ProductVariantSelector } from "@/components/product/product-variant-selector";
+import { getMyCart } from "@/lib/actions/cart.actions";
 
 const ProductDetailsPage = async (props: { params: Promise<{ slug: string }>; }) => {
     const params = await props.params;
@@ -25,6 +26,7 @@ const ProductDetailsPage = async (props: { params: Promise<{ slug: string }>; })
         currency: v.currency || product.currency,
     }));
 
+    const cart = await getMyCart();
     return (
         <>
             <section>
@@ -89,6 +91,7 @@ const ProductDetailsPage = async (props: { params: Promise<{ slug: string }>; })
                                 {product.stock > 0 && (
                                     <div className="flex-center">
                                         <AddToCart 
+                                            cart={cart}
                                             item={{ 
                                                 productId: product.id,
                                                 name: product.name,
