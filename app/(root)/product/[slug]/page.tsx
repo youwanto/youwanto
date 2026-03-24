@@ -30,14 +30,13 @@ const ProductDetailsPage = async (props: { params: Promise<{ slug: string }>; })
     return (
         <>
             <section>
-               <div className="grid grid-cols-1 md:grid-cols-5">
+               <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
                     {/* Product Images Column */}
-                    <div className="col-span-2">
+                    <div className="md:col-span-5">
                         <ProductImages images={product.images!} alt={product.name} />
                     </div>
-                    <div className="col-span-2">{/* Add Product Images */}</div>
                     {/* Product Details Column */}
-                    <div className="col-span-2 p-5">
+                    <div className="md:col-span-5 md:py-2">
                         <div className="flex flex-col gap-6">
                             <p>
                                 {product.brand} {" > "} {product.category}
@@ -75,7 +74,7 @@ const ProductDetailsPage = async (props: { params: Promise<{ slug: string }>; })
                     </div>
 
                     {/* Action column */}
-                    <div>
+                    <div className="md:col-span-2">
                         <Card>
                             <CardContent className="p-4">
                                 <div className="mb-2 flex justify-between">

@@ -4,10 +4,8 @@ import { convertToPlainObject, formatError, roundToTwoDecimals } from "../utils"
 import { cookies } from "next/headers";
 import { auth } from "@/auth";
 import { prisma } from "@/db/prisma";
-import { get } from "http";
 import { cartItemSchema, insertCartSchema } from "../validator";
 import { revalidatePath } from "next/cache";
-import { th } from "zod/v4/locales";
 import { Prisma } from "@prisma/client";
 
 // Calculate cart prices
@@ -170,6 +168,54 @@ export async function removeItemFromCart(productId: string) {
         return {
             success: true,
             message: `${product.name} ${existItem.quantity === 1 ? "removed from" : "updated in"} cart successfully`,
+        };
+    } catch (error) {
+        return {
+            success: false,
+            message: formatError(error),
+        };
+    }
+};
+
+export async function removeItemCompletely(productId: string) {
+    try {
+        // Get session cart id
+        const sessionCartId = (await cookies()).get('sessionCartId')?.value;
+        if (!sessionCartId) throw new Error("No session cart ID found.");
+
+        // Get product
+        const product = await prisma.product.findFirst({
+            where: { id: productId },
+        });
+        if (!product) throw new Error("Product not found.");
+
+        // Get cart
+        const cart = await getMyCart();
+        if (!cart) throw new Error("No cart found.");
+
+        // Check if cart has items
+        const existItem = (cart.items as CartItem[]).find(
+            (x) => x.productId === productId
+        );
+        if (!existItem) throw new Error("Item not found in cart.");
+
+        cart.items = (cart.items as CartItem[]).filter(
+            (x) => x.productId !== existItem.productId
+        );
+
+        // Update cart in database
+        await prisma.cart.update({
+            where: { id: cart.id },
+            data: {
+                items: cart.items as Prisma.CartUpdateitemsInput[],
+                ...calcPrice(cart.items as CartItem[]),
+            },
+        });
+        revalidatePath(`/product/${product.slug}`);
+        revalidatePath(`/cart`);
+        return {
+            success: true,
+            message: `${product.name} removed from cart successfully`,
         };
     } catch (error) {
         return {

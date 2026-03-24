@@ -19,7 +19,7 @@ const ProductPrice = ({value, currency="USD", className}: ProductPriceProps) => 
     // fallback if NaN
     if (Number.isNaN(num)) return null;
 
-    const symbol = currencySymbols[currency];
+  const symbol = currencySymbols[currency] ?? `${currency} `;
 
     // Ensures two decimal places
     const stringValue = num.toFixed(2);

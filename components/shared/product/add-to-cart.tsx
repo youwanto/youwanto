@@ -58,7 +58,7 @@ const AddToCart = ({ cart, item }: { cart?: Cart; item: Omit<CartItem, "cartId">
     const existItem = cart?.items.find((x) => x.productId === item.productId);
 
     return existItem ? (
-        <div>
+        <div className="flex items-center gap-2">
             <Button type="button" variant={"outline"} disabled={isPending} onClick={handleRemoveFromCart}>
                 {isPending ? <Loader className="w-4 h-4 animate-spin"/> : <Minus className="w-4 h-4"/>}
             </Button>

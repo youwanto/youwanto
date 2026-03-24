@@ -7,6 +7,7 @@ import type { NextAuthConfig } from 'next-auth';
 import { NextResponse } from 'next/server';
 
 export const config: NextAuthConfig = {
+    secret: process.env.AUTH_SECRET,
     pages: {
         signIn: '/sign-in',
         signOut: '/sign-out',
