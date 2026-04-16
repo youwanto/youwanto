@@ -11,11 +11,10 @@ const Homepage = async () => {
       where: { isActive: true },
       orderBy: { createdAt: "desc" },
     }),
-    prisma.product.findMany({
-      where: { isActive: true },
-      distinct: ["category"],
-      select: { category: true },
-      orderBy: { category: "asc" },
+    prisma.category.findMany({
+      where: { level: 2 },
+      select: { name: true, path: true },
+      orderBy: { name: "asc" },
     }),
     prisma.product.findMany({
       where: { isActive: true },
@@ -36,8 +35,8 @@ const Homepage = async () => {
     moreLatestProducts.length > 0
       ? moreLatestProducts[moreLatestProducts.length - 1].id
       : null;
-  const categories = categoryRows.map((row) => row.category).filter(Boolean);
-  const brands = brandRows.map((row) => row.brand).filter(Boolean);
+  const categories = categoryRows.map((row) => row.name).filter(Boolean);
+  const brands = brandRows.map((row) => row.brand).filter((b): b is string => Boolean(b));
   const priceMin = Number(priceAgg._min.price ?? 0);
   const priceMax = Number(priceAgg._max.price ?? 0);
 

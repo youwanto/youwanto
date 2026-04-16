@@ -21,7 +21,8 @@ const ProductDetailsPage = async (props: { params: Promise<{ slug: string }>; })
         sku: v.sku,
         size: v.size,
         color: v.color,
-        stock: v.stock,
+        inStock: v.inStock,
+        stockQty: v.stockQty ?? 0,
         price: Number(v.price),
         currency: v.currency || product.currency,
     }));
@@ -39,7 +40,7 @@ const ProductDetailsPage = async (props: { params: Promise<{ slug: string }>; })
                     <div className="md:col-span-5 md:py-2">
                         <div className="flex flex-col gap-6">
                             <p>
-                                {product.brand} {" > "} {product.category}
+                                {product.brand}
                             </p>
                             <h1 className="h3-bold">{product.name}</h1>
 
@@ -85,9 +86,9 @@ const ProductDetailsPage = async (props: { params: Promise<{ slug: string }>; })
                                 </div>
                                 <div className="mb-2 flex justify-between">
                                     <div>Status</div>
-                                    <div>{product.stock > 0 ? (<Badge variant={"outline"}>In Stock</Badge>) : (<Badge variant={"destructive"}>Unavailable</Badge>)}</div>
+                                    <div>{product.isActive ? (<Badge variant={"outline"}>In Stock</Badge>) : (<Badge variant={"destructive"}>Unavailable</Badge>)}</div>
                                 </div>
-                                {product.stock > 0 && (
+                                {product.isActive && (
                                     <div className="flex-center">
                                         <AddToCart 
                                             cart={cart}

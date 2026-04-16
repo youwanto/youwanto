@@ -24,7 +24,9 @@ export async function GET(req: Request) {
 
   const baseWhere = {
     isActive: true,
-    ...(category ? { category } : {}),
+    ...(category
+      ? { categories: { some: { category: { path: { startsWith: category } } } } }
+      : {}),
     ...(brand ? { brand } : {}),
     ...(priceFilter ? { price: priceFilter } : {}),
   };

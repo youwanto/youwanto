@@ -5,9 +5,13 @@ export type Product = z.infer<typeof insertProductSchema> & {
     id: string;
     createdAt: Date;
     updatedAt: Date;
+    price: string;
+    currency: string;
     rating: string;
     numReviews: number;
+    isActive: boolean;
     externalUrl: string;
+    styleCode: string | null;
 };
 
 export type Cart = z.infer<typeof insertCartSchema>;

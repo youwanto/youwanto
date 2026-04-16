@@ -347,7 +347,7 @@ async function seedProducts() {
     .filter(l => l.length > 0 && !l.startsWith('HDR|') && !l.startsWith('TRL|'));
 
   const feedBatchId = `feed-${new Date().toISOString()}`;
-  const rawProducts: any[] = [];
+  const rawProducts: RawProductInput[] = [];
   const groups = new Map<string, GroupItem[]>();
 
   for (const line of dataLines) {
@@ -389,13 +389,7 @@ async function seedProducts() {
       rawData: { productId: p[0], name: p[1], sku: p[2], category: p[3], subcategory: p[4], productUrl: p[5], primaryImage: p[6], shortDescription: p[8], longDescription: p[9], price: p[13], brand: p[16], model: p[19], brandName: p[20], stockStatus: p[22], ean: p[23], quantity: p[24], currency: p[25], galleryImages: p[26], size: p[30], materials: p[31], color: p[32], gender: p[33] },
       sku, styleCode, productIdFeed, ean,
     });
-    // Map validated data to new Prisma RawProduct shape
-    rawProducts.push({
-      ...rawProduct,
-      productId: productIdFeed || sku,
-      feedDate: new Date(),
-      rawPayload: rawProduct.rawData,
-    } as any);
+    rawProducts.push(rawProduct);
 
     // --- Group by styleCode / sku ---
     const key = styleCode || sku || productIdFeed || name;
@@ -417,7 +411,6 @@ async function seedProducts() {
   // ---- Create Products + Variants + link to Category ----
   let productCount = 0;
   let variantCount = 0;
-  const usedSlugs = new Set<string>();
 
   // Build a quick path→id lookup from DB
   const allCats = await prisma.category.findMany({ select: { id: true, path: true } });
@@ -428,14 +421,7 @@ async function seedProducts() {
 
     const images = Array.from(new Set([base.primaryImg, ...items.flatMap(i => i.gallery)].filter(Boolean)));
     const slugBase = slugify(base.name);
-    let slug = `${slugBase}-${slugify(key || '')}`.replace(/-+$/, '');
-    // Ensure slug uniqueness
-    if (usedSlugs.has(slug)) {
-      let counter = 2;
-      while (usedSlugs.has(`${slug}-${counter}`)) counter++;
-      slug = `${slug}-${counter}`;
-    }
-    usedSlugs.add(slug);
+    const slug = `${slugBase}-${(key || '').toLowerCase()}`.replace(/-+$/, '');
     const totalStock = items.reduce((s, i) => s + i.quantity, 0);
     const minPrice = Math.min(...items.map(i => i.price).filter(p => p > 0)) || 0;
     const mainCurrency = base.currency || 'GBP';
@@ -476,9 +462,6 @@ async function seedProducts() {
         description: base.description,
         images,
         imageUrl: base.primaryImg || null,
-        price: minPrice,
-        currency: mainCurrency,
-        isActive: anyActive,
         colors,
         sizes,
         materials,

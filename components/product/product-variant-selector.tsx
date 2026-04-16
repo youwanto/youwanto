@@ -7,10 +7,11 @@ import { cn } from "@/lib/utils";
 
 type VariantView = {
   id: string;
-  sku: string;
+  sku: string | null;
   size: string | null;
   color: string | null;
-  stock: number;
+  inStock: boolean;
+  stockQty: number;
   price: number;
   currency: string;
 };
@@ -64,13 +65,13 @@ export function ProductVariantSelector({ variants }: { variants: VariantView[] }
     if (!selectedVariant) return null;
 
     const stockText =
-        selectedVariant.stock <= 0
+        !selectedVariant.inStock || selectedVariant.stockQty <= 0
         ? "Sold out"
-        : selectedVariant.stock === 1
+        : selectedVariant.stockQty === 1
         ? "Only 1 left"
-        : selectedVariant.stock <= 3
-        ? `Only ${selectedVariant.stock} left`
-        : `${selectedVariant.stock} in stock`;
+        : selectedVariant.stockQty <= 3
+        ? `Only ${selectedVariant.stockQty} left`
+        : `${selectedVariant.stockQty} in stock`;
 
     return (
         <div className="mt-8 space-y-5">

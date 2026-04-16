@@ -76,8 +76,8 @@ export async function addItemToCart(data: CartItem) {
 
             // if not enough stock, throw error
             if (existItem) {
-                if (product.stock < existItem.quantity + 1) {
-                    throw new Error("Not enough stock available.");
+                if (!product.isActive) {
+                    throw new Error("Product is no longer available.");
                 }
                 // increase quantity of existing item
                 (cart.items as CartItem[]).find(
@@ -85,7 +85,7 @@ export async function addItemToCart(data: CartItem) {
                 )!.quantity = existItem.quantity + 1;
             } else {
                 // if stock, add item to cart
-                if (product.stock < 1) throw new Error("Not enough stock available.");
+                if (!product.isActive) throw new Error("Product is no longer available.");
                 cart.items.push(item);
             }
             
@@ -93,7 +93,7 @@ export async function addItemToCart(data: CartItem) {
             await prisma.cart.update({
                 where: { id: cart.id },
                 data: {
-                    items: cart.items as Prisma.CartUpdateitemsInput[],
+                    items: cart.items as Prisma.CartUpdateInput['items'],
                     ...calcPrice(cart.items as CartItem[]),
                 },
             });
@@ -160,7 +160,7 @@ export async function removeItemFromCart(productId: string) {
         await prisma.cart.update({
             where: { id: cart.id },
             data: {
-                items: cart.items as Prisma.CartUpdateitemsInput[],
+                items: cart.items as Prisma.CartUpdateInput['items'],
                 ...calcPrice(cart.items as CartItem[]),
             },
         });
@@ -207,7 +207,7 @@ export async function removeItemCompletely(productId: string) {
         await prisma.cart.update({
             where: { id: cart.id },
             data: {
-                items: cart.items as Prisma.CartUpdateitemsInput[],
+                items: cart.items as Prisma.CartUpdateInput['items'],
                 ...calcPrice(cart.items as CartItem[]),
             },
         });
