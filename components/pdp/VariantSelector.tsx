@@ -33,6 +33,31 @@ const colorClasses: Record<string, string> = {
 const getColorName = (variant: ProductDetailVariant) => variant.color?.trim() || 'Standard';
 const getSizeName = (variant: ProductDetailVariant) => variant.size?.trim() || 'One size';
 
+const alphaSizeOrder = new Map([
+  ['XXS', 0],
+  ['XS', 1],
+  ['S', 2],
+  ['M', 3],
+  ['L', 4],
+  ['XL', 5],
+  ['XXL', 6],
+]);
+
+const sizeCollator = new Intl.Collator('en-GB', { numeric: true, sensitivity: 'base' });
+
+const sortSizes = (left: string, right: string) => {
+  const leftKey = left.toUpperCase();
+  const rightKey = right.toUpperCase();
+  const leftAlphaIndex = alphaSizeOrder.get(leftKey);
+  const rightAlphaIndex = alphaSizeOrder.get(rightKey);
+
+  if (leftAlphaIndex !== undefined && rightAlphaIndex !== undefined) return leftAlphaIndex - rightAlphaIndex;
+  if (leftAlphaIndex !== undefined) return -1;
+  if (rightAlphaIndex !== undefined) return 1;
+
+  return sizeCollator.compare(left, right);
+};
+
 const getCheapestAvailableVariant = (variants: ProductDetailVariant[]) => {
   return variants.find((variant) => variant.inStock) ?? variants[0] ?? null;
 };
@@ -56,7 +81,7 @@ const VariantSelector = ({
 
   const sizeOptions = useMemo(() => {
     const source = selectedColor ? scopedVariants : variants;
-    return Array.from(new Set(source.map(getSizeName)));
+    return Array.from(new Set(source.map(getSizeName))).sort(sortSizes);
   }, [scopedVariants, selectedColor, variants]);
 
   useEffect(() => {

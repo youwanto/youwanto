@@ -12,13 +12,15 @@ const RelatedProducts = async ({ productId, categoryPath, productBrand }: Relate
 
   if (products.length === 0) return null;
 
-  const hasSameBrand = productBrand ? products.some((product) => product.brand === productBrand) : false;
+  const sameBrandProducts = productBrand ? products.filter((product) => product.brand === productBrand) : [];
+  const displayProducts = sameBrandProducts.length >= 4 ? sameBrandProducts : products;
+  const title = sameBrandProducts.length >= 4 ? `More from ${productBrand}` : 'You may also like';
 
   return (
     <section className="space-y-4">
-      <h2 className="h2-bold">{hasSameBrand ? `More from ${productBrand}` : 'You may also like'}</h2>
+      <h2 className="h2-bold">{title}</h2>
       <div className="flex gap-4 overflow-x-auto pb-2 md:grid md:grid-cols-4 md:overflow-visible">
-        {products.map((product) => (
+        {displayProducts.map((product) => (
           <div key={product.id} className="w-44 shrink-0 md:w-auto">
             <ProductCard product={product} />
           </div>
