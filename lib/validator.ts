@@ -148,16 +148,30 @@ export const insertCartSchema = z.object({
 // ────────────────────────────────────────────────────────────
 // Collection page query params
 // ────────────────────────────────────────────────────────────
+const queryStringArray = z.preprocess((value) => {
+  if (value === undefined || value === null || value === '') return undefined;
+  return Array.isArray(value) ? value.filter(Boolean) : [value];
+}, z.array(z.string().min(1)).default([]));
+
+const queryBoolean = z.preprocess((value) => {
+  if (Array.isArray(value)) return value.includes('true') || value.includes('1');
+  return value === true || value === 'true' || value === '1';
+}, z.boolean().default(false));
+
 export const collectionQuerySchema = z.object({
   path:      z.string().min(1),               // e.g. "women/outerwear/jackets"
-  colors:    z.array(z.string()).optional(),
-  sizes:     z.array(z.string()).optional(),
-  materials: z.array(z.string()).optional(),
-  brands:    z.array(z.string()).optional(),
-  minPrice:  z.coerce.number().optional(),
-  maxPrice:  z.coerce.number().optional(),
-  inStockOnly: z.boolean().default(false),
+  colors:    queryStringArray,
+  sizes:     queryStringArray,
+  materials: queryStringArray,
+  brands:    queryStringArray,
+  minPrice:  z.coerce.number().min(0).optional(),
+  maxPrice:  z.coerce.number().min(0).optional(),
+  inStock:   queryBoolean,
+  inStockOnly: queryBoolean.optional(),
   sort:      z.enum(['price_asc', 'price_desc', 'newest']).default('newest'),
   page:      z.coerce.number().int().min(1).default(1),
   limit:     z.coerce.number().int().min(1).max(100).default(24),
-});
+}).transform(({ inStockOnly, ...query }) => ({
+  ...query,
+  inStock: query.inStock || Boolean(inStockOnly),
+}));

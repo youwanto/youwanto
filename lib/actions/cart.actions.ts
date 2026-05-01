@@ -63,6 +63,7 @@ export async function addItemToCart(data: CartItem) {
 
             // revalidate product page
             revalidatePath(`/product/${product.slug}`);
+            revalidatePath(`/products/${product.slug}`);
             return {
                 success: true,
                 message: `${product.name} added to cart successfully`,
@@ -99,6 +100,7 @@ export async function addItemToCart(data: CartItem) {
             });
 
             revalidatePath(`/product/${product.slug}`);
+            revalidatePath(`/products/${product.slug}`);
             return {
                 success: true,
                 message: `${product.name} ${existItem ? "updated in" : "added to"} cart successfully`,
@@ -165,6 +167,7 @@ export async function removeItemFromCart(productId: string) {
             },
         });
         revalidatePath(`/product/${product.slug}`);
+        revalidatePath(`/products/${product.slug}`);
         return {
             success: true,
             message: `${product.name} ${existItem.quantity === 1 ? "removed from" : "updated in"} cart successfully`,
