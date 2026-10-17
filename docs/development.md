@@ -40,3 +40,7 @@ Review the Vercel preview using a non-production test database where writes are 
 ## Reusable assistant workflow
 
 The personal `$develop-youwanto` skill supports repository inspection, scoped implementation, documentation upkeep and PR preparation. Repository instructions remain in AGENTS.md so other tools can follow the same invariants. Invoke the skill with a specific backlog item, for example: “Use $develop-youwanto to implement URL-backed homepage filters.”
+
+## Verification automation
+
+Use npm run test:http for local HTTP status/error handling without database credentials. Run npm run test:smoke -- https://www.youwanto.com to check the live baseline, or supply an accessible preview origin to validate the branch. Read docs/verification.md before interpreting the results; an HTTP smoke pass does not prove authenticated or purchase workflows.

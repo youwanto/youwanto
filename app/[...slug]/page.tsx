@@ -6,6 +6,7 @@ import Header from '@/components/shared/header';
 import { CollectionQuery, getCategoryByPath, getCollectionData } from '@/lib/actions/collection';
 import { collectionQuerySchema } from '@/lib/validator';
 import { Metadata } from 'next';
+import { SERVER_URL } from '@/lib/constants';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { prisma } from '@/db/prisma';
@@ -31,12 +32,13 @@ export async function generateMetadata({ params }: CollectionPageProps): Promise
   if (!category) return {};
 
   return {
+    alternates: { canonical: `/${path}` },
     title: `${category.name} | YouWanto`,
-    description: `Shop ${category.name} at YouWanto. Premium fashion with free delivery.`,
+    description: `Shop ${category.name} at YouWanto. Discover products from partner retailers.`,
     openGraph: {
       title: `${category.name} | YouWanto`,
       description: `Shop ${category.name} at YouWanto.`,
-      url: `https://youwanto.com/${path}`,
+      url: new URL(`/${path}`, SERVER_URL).toString(),
     },
   };
 }

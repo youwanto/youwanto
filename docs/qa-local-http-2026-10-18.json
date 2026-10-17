@@ -1,0 +1,41 @@
+{
+  "checkedAt": "2026-10-17T22:18:51.423Z",
+  "scope": "Local HTTP API rejection and robots tests without a database.",
+  "results": [
+    {
+      "query": "minPrice=NaN",
+      "status": 400,
+      "passed": true
+    },
+    {
+      "query": "minPrice=-1",
+      "status": 400,
+      "passed": true
+    },
+    {
+      "query": "minPrice=50&maxPrice=10",
+      "status": 400,
+      "passed": true
+    },
+    {
+      "query": "sort=random",
+      "status": 400,
+      "passed": true
+    },
+    {
+      "query": "currency=INVALID",
+      "status": 400,
+      "passed": true
+    },
+    {
+      "query": "cursor=invalid",
+      "status": 400,
+      "passed": true
+    },
+    {
+      "path": "/robots.txt",
+      "status": 200,
+      "passed": true
+    }
+  ]
+}

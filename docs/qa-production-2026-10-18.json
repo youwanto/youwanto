@@ -1,0 +1,96 @@
+{
+  "target": "https://www.youwanto.com",
+  "checkedAt": "2026-10-17T22:18:07.634Z",
+  "scope": "Read-only HTTP smoke tests; does not prove browser interactions, mobile layout, authenticated flows or transactions.",
+  "passed": 8,
+  "failed": 11,
+  "results": [
+    {
+      "name": "Homepage renders products and one H1",
+      "status": "fail",
+      "message": "Expected one H1\n\n0 !== 1\n"
+    },
+    {
+      "name": "price-asc: numeric ordering, currency and two-page uniqueness",
+      "status": "fail",
+      "message": "Duplicate product across pages\n\n49 !== 60\n"
+    },
+    {
+      "name": "price-desc: numeric ordering, currency and two-page uniqueness",
+      "status": "fail",
+      "message": "Duplicate product across pages\n\n50 !== 60\n"
+    },
+    {
+      "name": "Newest endpoint returns unique products",
+      "status": "pass"
+    },
+    {
+      "name": "Brand filter matches exact brand",
+      "status": "pass"
+    },
+    {
+      "name": "Price bounds are respected",
+      "status": "pass"
+    },
+    {
+      "name": "Reject invalid input: minPrice=NaN",
+      "status": "fail",
+      "message": "Invalid filters must return 400\n\n200 !== 400\n"
+    },
+    {
+      "name": "Reject invalid input: minPrice=-1",
+      "status": "fail",
+      "message": "Invalid filters must return 400\n\n200 !== 400\n"
+    },
+    {
+      "name": "Reject invalid input: minPrice=50&maxPrice=10",
+      "status": "fail",
+      "message": "Invalid filters must return 400\n\n200 !== 400\n"
+    },
+    {
+      "name": "Reject invalid input: sort=random",
+      "status": "fail",
+      "message": "Invalid filters must return 400\n\n200 !== 400\n"
+    },
+    {
+      "name": "Reject invalid input: currency=INVALID",
+      "status": "fail",
+      "message": "Invalid filters must return 400\n\n200 !== 400\n"
+    },
+    {
+      "name": "Reject invalid input: cursor=invalid",
+      "status": "fail",
+      "message": "Invalid filters must return 400\n\n500 !== 400\n"
+    },
+    {
+      "name": "Product detail renders selected sample",
+      "status": "pass"
+    },
+    {
+      "name": "/cart: renders without server error",
+      "status": "pass"
+    },
+    {
+      "name": "/sign-in: renders without server error",
+      "status": "pass"
+    },
+    {
+      "name": "/sign-up: renders without server error",
+      "status": "pass"
+    },
+    {
+      "name": "Unknown product is marked noindex or HTTP 404",
+      "status": "pass"
+    },
+    {
+      "name": "robots.txt is plain text, not an HTML collection response",
+      "status": "fail",
+      "message": "The input did not match the regular expression /text\\/plain/. Input:\n\n'text/html; charset=utf-8'\n"
+    },
+    {
+      "name": "sitemap.xml contains XML URL entries",
+      "status": "fail",
+      "message": "The input did not match the regular expression /xml/. Input:\n\n'text/html; charset=utf-8'\n"
+    }
+  ]
+}

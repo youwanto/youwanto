@@ -43,3 +43,9 @@ BuyButton identifies partner products from product.externalUrl or variant deepLi
 - All product/category static params are queried during build; build requires database connectivity.
 - db/seed.ts deletes catalog tables and is not a safe incremental importer.
 - No deployed feed scheduler, monitoring or analytics integration is established by this audit.
+
+## SEO endpoints and QA
+
+app/robots.ts provides crawler directives and the sitemap URL. app/sitemap.ts queries active products and populated directly assigned categories at request time. It currently caps entries at 45,000 products and 1,000 categories; introduce sitemap shards before exceeding this size. Product and collection pages now declare canonical paths using the configured SERVER_URL. Collection metadata no longer promises free delivery.
+
+GitHub Actions validates installation, unit tests, HTTP input rejection, lint, types and schema syntax. scripts/smoke-test.mjs records read-only live HTTP checks; scripts/check-local-http.mjs verifies route validation and robots against a temporary local server. No production credentials are required for those local checks.

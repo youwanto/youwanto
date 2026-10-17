@@ -1,0 +1,25 @@
+name: Project checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npm run test:http
+      - run: npm run typecheck
+      - run: npx prisma validate
+        env:
+          # Syntax validation only. No database connection or migrations are run.
+          DATABASE_URL: postgresql://test:test@localhost:5432/youwanto_test

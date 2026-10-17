@@ -20,15 +20,41 @@
 
 Unit tests do not prove database execution ordering, feed data accuracy, browser race behavior or a working checkout. Record preview/live acceptance independently.
 
-## Latest run
+## Latest run — 2026-10-18
 
-On this branch (2026-10-17):
+| Check | Result |
+|---|---|
+| Clean npm ci and Prisma client generation | Pass |
+| Catalog regression suite | 8 tests pass |
+| Full ESLint | Pass after removing the existing errors/warnings |
+| TypeScript | Pass |
+| Prisma schema validation | Pass with a non-production placeholder DATABASE_URL; no database connection made |
+| Local HTTP endpoint validation | All six invalid queries return 400 with JSON errors |
+| Local robots.txt | 200 with text/plain and User-Agent directives |
+| Production HTTP smoke suite | 8 pass, 11 fail against the existing unmerged site |
+| Full production build | Compiles and validates types/lint; blocked collecting product/category static params without DATABASE_URL |
+| PR preview browser tests | Blocked by Vercel authentication; no bypass attempted |
+| Authenticated sign-in, account creation, checkout, mobile viewport, feed mutations | Not completed; requires suitable test configuration/accounts and explicit transaction scope |
 
-- Eight catalog tests pass.
-- Type checking and changed-file ESLint pass.
-- Lockfile repaired; npm ci dry-run passes.
-- Full ESLint reports three existing no-explicit-any errors: auth.ts:55 and db/seed.ts:350,398, plus five existing unused-variable warnings.
-- Production build compiles successfully and passes Next.js lint/type validation, then fails collecting category static params because DATABASE_URL is not configured (ERR_INVALID_URL). This is a blocked build, not a passing build.
-- No local/preview browser acceptance or database integration tests completed; no production data was modified.
+Reports: [production HTTP results](qa-production-2026-10-18.json) and [local HTTP results](qa-local-http-2026-10-18.json). Raw production HTTP 200 responses for missing products include noindex, so this is recorded as passing rather than a broken 404.
 
-The initial SSR page is retained on hydration; API requests start only when filters change or subsequent pages are requested. Regression coverage for this browser behavior remains manual.
+Production failures: missing homepage H1, duplicate products across consecutive sorted pages, six invalid-query acceptance/status failures, and missing robots/sitemap content types. The six inputs are NaN price, negative price, reversed bounds, invalid sort, invalid currency and malformed cursor. Separate browser observations confirm shuffled price results, dollar filter labels, duplicate category names and an empty Dresses result.
+
+Production browser checks confirmed homepage images loaded, cart empty state and sign-in/sign-up navigation rendered. This does not establish working credentials or successful registrations. No accounts, purchases, catalog writes or production database changes were made.
+
+## Repeatable commands
+
+```bash
+npm ci
+npm test
+npm run lint
+npm run typecheck
+DATABASE_URL=postgresql://test:test@localhost:5432/youwanto_test npx prisma validate
+npm run test:http
+npm run test:smoke -- https://www.youwanto.com docs/qa-production-2026-10-18.json
+npm run build
+```
+
+`test:http` starts a temporary local Next.js server, checks HTTP rejection and robots behavior without a database, then stops its server process group. `test:smoke` performs read-only HTTP requests against the explicitly supplied origin and exits nonzero for failures. Use a Vercel preview URL to verify fixes before merge. The production run above is a baseline of the existing deployment, not a report on this branch.
+
+GitHub Actions now runs install, unit tests, full lint, local HTTP checks, TypeScript and schema validation. Vercel remains responsible for builds with its configured database. A full end-to-end test suite and measured mobile/performance acceptance remain open.

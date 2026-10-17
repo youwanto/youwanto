@@ -1,6 +1,6 @@
 # Documentation index
 
-Verified against repository code on 2026-10-17. Production observations and proposed improvements are recorded separately from implementation.
+Verified against repository code on 2026-10-18. Production observations and proposed improvements are recorded separately from implementation.
 
 | Document | Purpose / status |
 |---|---|
@@ -19,3 +19,5 @@ Verified against repository code on 2026-10-17. Production observations and prop
 | [Prompts](prompts.md) | Historical implementation prompts, not runtime instructions |
 
 Use `prisma/schema.prisma`, `package.json`, and actual routes as the source of truth where older documents disagree. Do not copy free-delivery promises from a design spec into partner product UI without retailer evidence.
+
+Production QA evidence is in [qa-production-2026-10-18.json](qa-production-2026-10-18.json); local HTTP results are in [qa-local-http-2026-10-18.json](qa-local-http-2026-10-18.json).
