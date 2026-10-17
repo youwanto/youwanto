@@ -20,22 +20,28 @@ const BuyButton = ({ product, variant, image, disabled }: BuyButtonProps) => {
   const [isPending, startTransition] = useTransition();
   const isDisabled = disabled || !variant || !variant.inStock || isPending;
 
-  if (variant?.deepLink) {
+  const isPartnerProduct = Boolean(product.externalUrl || product.variants.some(item => item.deepLink));
+  const partnerLink = variant?.deepLink || product.externalUrl;
+
+  if (isPartnerProduct) {
     return (
       <div className="sticky bottom-0 z-30 -mx-5 border-t bg-background p-4 lg:static lg:mx-0 lg:border-0 lg:p-0">
-        {isDisabled ? (
+        {isDisabled || !partnerLink ? (
           <Button className="h-11 w-full" disabled>
-            Go to Store
+            Shop at partner store
             <ExternalLink className="size-4" />
           </Button>
         ) : (
           <Button asChild className="h-11 w-full">
-            <a href={variant.deepLink} target="_blank" rel="noopener noreferrer nofollow sponsored">
-              Go to Store
+            <a href={partnerLink} target="_blank" rel="noopener noreferrer nofollow sponsored">
+              Shop at partner store
               <ExternalLink className="size-4" />
             </a>
           </Button>
         )}
+        <p className="mt-2 text-xs text-muted-foreground">
+          {variant ? 'Complete your purchase on the retailer’s website. The retailer confirms price and availability.' : 'Select your options to continue to the retailer’s website.'}
+        </p>
       </div>
     );
   }

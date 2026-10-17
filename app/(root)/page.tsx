@@ -1,57 +1,47 @@
-import { prisma } from "@/db/prisma";
-import { Product } from "@/types";
-import InfiniteProductList from "@/components/product/infinite-product-list";
+import { prisma } from '@/db/prisma';
+import { Product } from '@/types';
+import InfiniteProductList from '@/components/product/infinite-product-list';
+import { buildCatalogQuery, catalogPage } from '@/lib/catalog';
+import { convertToPlainObject } from '@/lib/utils';
+import type { Metadata } from 'next';
 
-const PAGE_SIZE = 12;
+export const metadata: Metadata = { alternates: { canonical: '/' } };
 
 const Homepage = async () => {
-  const [moreLatestProducts, categoryRows, brandRows, priceAgg] = await Promise.all([
-    prisma.product.findMany({
-      take: PAGE_SIZE,
-      where: { isActive: true },
-      orderBy: { createdAt: "desc" },
-    }),
+  const currency = 'GBP';
+  const where = { isActive: true, currency };
+  const [rows, categoryRows, brandRows, priceAgg] = await Promise.all([
+    prisma.product.findMany(buildCatalogQuery({ sort: 'newest', currency })),
     prisma.category.findMany({
-      where: { level: 2 },
-      select: { name: true, path: true },
-      orderBy: { name: "asc" },
+      where: { products: { some: { product: where } } },
+      select: { name: true, path: true, level: true },
+      orderBy: { path: 'asc' },
     }),
-    prisma.product.findMany({
-      where: { isActive: true },
-      distinct: ["brand"],
-      select: { brand: true },
-      orderBy: { brand: "asc" },
-    }),
-    prisma.product.aggregate({
-      where: { isActive: true },
-      _min: { price: true },
-      _max: { price: true },
-    }),
+    prisma.product.findMany({ where, distinct: ['brand'], select: { brand: true }, orderBy: { brand: 'asc' } }),
+    prisma.product.aggregate({ where, _min: { price: true }, _max: { price: true } }),
   ]);
-  // Cast DB objects to your app-level Product type
-  const latestProducts = moreLatestProducts as Product[];
-
-  const nextCursor =
-    moreLatestProducts.length > 0
-      ? moreLatestProducts[moreLatestProducts.length - 1].id
-      : null;
-  const categories = categoryRows.map((row) => row.name).filter(Boolean);
-  const brands = brandRows.map((row) => row.brand).filter((b): b is string => Boolean(b));
-  const priceMin = Number(priceAgg._min.price ?? 0);
-  const priceMax = Number(priceAgg._max.price ?? 0);
-
-  return(
+  // Include ancestors of directly assigned categories; feeds may link only leaf nodes.
+  const paths = new Set(categoryRows.flatMap(({ path }) => {
+    const parts = path.split('/');
+    return parts.map((_, index) => parts.slice(0, index + 1).join('/'));
+  }));
+  const categories = await prisma.category.findMany({
+    where: { level: 2, path: { in: [...paths] } },
+    select: { name: true, path: true }, orderBy: [{ name: 'asc' }, { path: 'asc' }],
+  });
+  const { items, nextCursor } = catalogPage(rows);
+  return (
     <div className="space-y-8">
-      <h2 className="h2-bold">Latest Products</h2>
+      <h1 className="h2-bold">Latest Products</h1>
       <InfiniteProductList
-        initialProducts={latestProducts}
+        initialProducts={convertToPlainObject(items) as unknown as Product[]}
         initialCursor={nextCursor}
-        categories={categories}
-        brands={brands}
-        priceRange={{ min: priceMin, max: priceMax }}
+        categories={categories.map(({ name, path }) => ({ value: path, label: `${path.split('/')[0]} / ${name}` }))}
+        brands={brandRows.map(row => row.brand).filter((brand): brand is string => Boolean(brand))}
+        priceRange={{ min: Number(priceAgg._min.price ?? 0), max: Number(priceAgg._max.price ?? 0) }}
+        currency={currency}
       />
     </div>
   );
 };
-
 export default Homepage;

@@ -6,6 +6,7 @@ import Header from '@/components/shared/header';
 import { prisma } from '@/db/prisma';
 import { getProductBySlug } from '@/lib/actions/product';
 import { Metadata } from 'next';
+import { SERVER_URL } from '@/lib/constants';
 import { notFound } from 'next/navigation';
 
 type ProductPageProps = {
@@ -32,12 +33,13 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   const image = product.imageUrl ?? product.images[0];
 
   return {
+    alternates: { canonical: `/products/${product.slug}` },
     title: `${product.name} | ${product.brand ?? 'YouWanto'}`,
     description: product.shortDescription ?? product.description?.slice(0, 155) ?? `Shop ${product.name} at YouWanto.`,
     openGraph: {
       title: `${product.name} | ${product.brand ?? 'YouWanto'}`,
       images: image ? [{ url: image }] : undefined,
-      url: `https://youwanto.com/products/${product.slug}`,
+      url: new URL(`/products/${product.slug}`, SERVER_URL).toString(),
     },
   };
 }

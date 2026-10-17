@@ -1,8 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
-import ProductPrice from "@/components/shared/product/product-price";
 import { cn } from "@/lib/utils";
 
 type VariantView = {
