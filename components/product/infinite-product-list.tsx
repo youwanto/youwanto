@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { formatCatalogPrice } from "@/lib/catalog";
 import { Product } from "@/types";
 import ProductCard from "@/components/shared/product/product-card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -8,12 +9,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 type Props = {
   initialProducts: Product[];
   initialCursor: string | null;
-  categories: string[];
+  categories: { value: string; label: string }[];
+  currency: string;
   brands: string[];
   priceRange: { min: number; max: number };
 };
 
-const InfiniteProductList = ({ initialProducts, initialCursor, categories, brands, priceRange }: Props) => {
+const InfiniteProductList = ({ initialProducts, initialCursor, categories, brands, priceRange, currency }: Props) => {
   const [products, setProducts] = useState<Product[]>(() => initialProducts);
   const [cursor, setCursor] = useState<string | null>(initialCursor);
   const [loading, setLoading] = useState(false);
@@ -22,7 +24,7 @@ const InfiniteProductList = ({ initialProducts, initialCursor, categories, brand
   const [selectedBrand, setSelectedBrand] = useState<string>("All");
   const [priceMin, setPriceMin] = useState<number>(Math.floor(priceRange.min));
   const [priceMax, setPriceMax] = useState<number>(Math.ceil(priceRange.max));
-  const [sortKey, setSortKey] = useState<string>("price-asc");
+  const [sortKey, setSortKey] = useState<string>("newest");
 
   const normalizedPrice = useMemo(() => {
     const min = Math.min(priceMin, priceMax);
@@ -31,64 +33,68 @@ const InfiniteProductList = ({ initialProducts, initialCursor, categories, brand
   }, [priceMin, priceMax]);
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const generation = useRef(0);
+  const moreRequest = useRef<AbortController | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  const queryString = useMemo(() => {
+    const params = new URLSearchParams({ currency, sort: sortKey,
+      minPrice: String(normalizedPrice.min), maxPrice: String(normalizedPrice.max) });
+    if (selectedCategory !== 'All') params.set('category', selectedCategory);
+    if (selectedBrand !== 'All') params.set('brand', selectedBrand);
+    return params.toString();
+  }, [currency, sortKey, normalizedPrice.min, normalizedPrice.max, selectedCategory, selectedBrand]);
+
+  const initialQueryString = useRef(queryString);
 
   const loadMore = useCallback(async () => {
-    if (!cursor || loading) return;
-
+    if (!cursor || loading || moreRequest.current) return;
+    const controller = new AbortController();
+    moreRequest.current = controller;
+    const requestGeneration = generation.current;
     setLoading(true);
-
+    setError(null);
     try {
-      const params = new URLSearchParams({
-        cursor,
+      const params = new URLSearchParams(queryString);
+      params.set('cursor', cursor);
+      const res = await fetch(`/api/products?${params}`, { signal: controller.signal });
+      if (!res.ok) throw new Error('Products could not be loaded. Please try again.');
+      const data = await res.json() as { items: Product[]; nextCursor: string | null };
+      if (requestGeneration !== generation.current) return;
+      setProducts(prev => {
+        const ids = new Set(prev.map(product => product.id));
+        return [...prev, ...data.items.filter(product => !ids.has(product.id))];
       });
-      if (selectedCategory !== "All") params.set("category", selectedCategory);
-      if (selectedBrand !== "All") params.set("brand", selectedBrand);
-      params.set("minPrice", String(normalizedPrice.min));
-      params.set("maxPrice", String(normalizedPrice.max));
-      params.set("sort", sortKey);
-
-      const res = await fetch(`/api/products?${params.toString()}`);
-      const data = (await res.json()) as {
-        items: Product[];
-        nextCursor: string | null;
-      };
-
-      setProducts((prev) => [...prev, ...data.items]);
       setCursor(data.nextCursor);
-      setHasMore(!!data.nextCursor);
-    } catch (error) {
-      console.error("Failed to load more products:", error);
+      setHasMore(Boolean(data.nextCursor));
+    } catch {
+      if (!controller.signal.aborted && requestGeneration === generation.current) {
+        setError('Products could not be loaded. Please try again.');
+      }
     } finally {
-      setLoading(false);
+      if (moreRequest.current === controller) moreRequest.current = null;
+      if (requestGeneration === generation.current) setLoading(false);
     }
-  }, [cursor, loading, selectedCategory, selectedBrand, normalizedPrice.min, normalizedPrice.max]);
+  }, [cursor, loading, queryString]);
 
-  // observer now integrates cleanly
   useEffect(() => {
     const el = sentinelRef.current;
-    if (!el || !hasMore) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          loadMore();
-        }
-      },
-      { rootMargin: "200px" }
-    );
-
+    if (!el || !hasMore || error || loading) return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) void loadMore();
+    }, { rootMargin: '200px' });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [loadMore, hasMore]); // loadMore is safe now
+  }, [loadMore, hasMore, error, loading]);
 
   const activeFilters: string[] = [];
-  if (selectedCategory !== "All") activeFilters.push(selectedCategory);
+  if (selectedCategory !== "All") activeFilters.push(categories.find(category => category.value === selectedCategory)?.label ?? selectedCategory);
   if (selectedBrand !== "All") activeFilters.push(selectedBrand);
   if (
     normalizedPrice.min > priceRange.min ||
     normalizedPrice.max < priceRange.max
   ) {
-    activeFilters.push(`$${normalizedPrice.min}-${normalizedPrice.max}`);
+    activeFilters.push(`${formatCatalogPrice(normalizedPrice.min, currency)}–${formatCatalogPrice(normalizedPrice.max, currency)}`);
   }
 
   const resetFilters = () => {
@@ -96,7 +102,7 @@ const InfiniteProductList = ({ initialProducts, initialCursor, categories, brand
     setSelectedBrand("All");
     setPriceMin(Math.floor(priceRange.min));
     setPriceMax(Math.ceil(priceRange.max));
-    setSortKey("price-asc");
+    setSortKey("newest");
   };
 
   const showLoadMore = hasMore;
@@ -106,18 +112,18 @@ const InfiniteProductList = ({ initialProducts, initialCursor, categories, brand
       <div>
         <p className="text-xs font-medium uppercase text-muted-foreground">Category</p>
         <div className="mt-2 flex flex-wrap gap-2">
-          {["All", ...categories].map((category) => (
+          {[{ value: "All", label: "All" }, ...categories].map((category) => (
             <button
-              key={category}
+              key={category.value}
               type="button"
-              onClick={() => setSelectedCategory(category)}
+              onClick={() => setSelectedCategory(category.value)}
               className={
-                category === selectedCategory
+                category.value === selectedCategory
                   ? "rounded-full border border-foreground bg-foreground px-3 py-1 text-xs text-background"
                   : "rounded-full border px-3 py-1 text-xs text-muted-foreground hover:border-foreground/60 hover:text-foreground"
               }
             >
-              {category}
+              {category.label}
             </button>
           ))}
         </div>
@@ -145,13 +151,14 @@ const InfiniteProductList = ({ initialProducts, initialCursor, categories, brand
         <p className="text-xs font-medium uppercase text-muted-foreground">Price range</p>
         <div className="mt-3 space-y-3">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>${normalizedPrice.min}</span>
-            <span>${normalizedPrice.max}</span>
+            <span>{formatCatalogPrice(normalizedPrice.min, currency)}</span>
+            <span>{formatCatalogPrice(normalizedPrice.max, currency)}</span>
           </div>
           <div className="relative h-8">
             <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-muted" />
             <input
               type="range"
+              aria-label="Minimum price"
               min={Math.floor(priceRange.min)}
               max={Math.ceil(priceRange.max)}
               value={priceMin}
@@ -160,6 +167,7 @@ const InfiniteProductList = ({ initialProducts, initialCursor, categories, brand
             />
             <input
               type="range"
+              aria-label="Maximum price"
               min={Math.floor(priceRange.min)}
               max={Math.ceil(priceRange.max)}
               value={priceMax}
@@ -180,40 +188,37 @@ const InfiniteProductList = ({ initialProducts, initialCursor, categories, brand
   );
 
   useEffect(() => {
+    // SSR already supplied the first page for this exact initial query.
+    if (generation.current === 0 && queryString === initialQueryString.current && retry === 0) return;
+    const controller = new AbortController();
+    const requestGeneration = ++generation.current;
+    moreRequest.current?.abort();
+    moreRequest.current = null;
+    setLoading(true);
+    setError(null);
+    setHasMore(false);
+    setProducts([]);
+    setCursor(null);
     const fetchFiltered = async () => {
-      setLoading(true);
       try {
-        const params = new URLSearchParams();
-        if (selectedCategory !== "All") params.set("category", selectedCategory);
-        if (selectedBrand !== "All") params.set("brand", selectedBrand);
-        params.set("minPrice", String(normalizedPrice.min));
-        params.set("maxPrice", String(normalizedPrice.max));
-        params.set("sort", sortKey);
-
-        const res = await fetch(`/api/products?${params.toString()}`);
-        const data = (await res.json()) as {
-          items: Product[];
-          nextCursor: string | null;
-        };
-
+        const res = await fetch(`/api/products?${queryString}`, { signal: controller.signal });
+        if (!res.ok) throw new Error('Products could not be loaded. Please try again.');
+        const data = await res.json() as { items: Product[]; nextCursor: string | null };
+        if (controller.signal.aborted || requestGeneration !== generation.current) return;
         setProducts(data.items);
         setCursor(data.nextCursor);
-        setHasMore(!!data.nextCursor);
-      } catch (error) {
-        console.error("Failed to load filtered products:", error);
+        setHasMore(Boolean(data.nextCursor));
+      } catch {
+        if (!controller.signal.aborted && requestGeneration === generation.current) {
+          setError('Products could not be loaded. Please try again.');
+        }
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted && requestGeneration === generation.current) setLoading(false);
       }
     };
-
-    fetchFiltered();
-  }, [
-    normalizedPrice.min,
-    normalizedPrice.max,
-    sortKey,
-    selectedBrand,
-    selectedCategory,
-  ]);
+    void fetchFiltered();
+    return () => { controller.abort(); moreRequest.current?.abort(); };
+  }, [queryString, retry]);
 
   return (
     <>
@@ -254,12 +259,14 @@ const InfiniteProductList = ({ initialProducts, initialCursor, categories, brand
             </Sheet>
 
             <div className="flex items-center gap-2">
-              <label className="text-xs text-muted-foreground">Sort</label>
+              <label htmlFor="catalog-sort" className="text-xs text-muted-foreground">Sort</label>
               <select
+                id="catalog-sort"
                 value={sortKey}
                 onChange={(event) => setSortKey(event.target.value)}
                 className="rounded-full border bg-background px-3 py-2 text-xs"
               >
+                <option value="newest">Newest</option>
                 <option value="price-asc">Price: low to high</option>
                 <option value="price-desc">Price: high to low</option>
                 <option value="name-asc">Name A-Z</option>
@@ -292,7 +299,7 @@ const InfiniteProductList = ({ initialProducts, initialCursor, categories, brand
             ))}
           </div>
 
-          {products.length === 0 && !loading && (
+          {products.length === 0 && !loading && !error && (
             <p className="mt-6 text-center text-sm text-muted-foreground">
               No products match these filters.
             </p>
@@ -300,19 +307,13 @@ const InfiniteProductList = ({ initialProducts, initialCursor, categories, brand
         </div>
       </div>
 
-      {showLoadMore && loading && (
-        <p className="mt-4 text-center text-muted-foreground text-sm">
-          Loading more…
-        </p>
-      )}
-
-      {showLoadMore && !hasMore && (
-        <p className="mt-4 text-center text-muted-foreground text-sm">
-          No more products
-        </p>
-      )}
-
-      {showLoadMore && <div ref={sentinelRef} className="h-1" />}
+      {loading && <p role="status" className="mt-4 text-center text-sm text-muted-foreground">Loading products…</p>}
+      {error && <div role="alert" className="mt-4 text-center text-sm">
+        <p>{error}</p>
+        <button type="button" className="mt-2 underline" onClick={() => cursor ? void loadMore() : setRetry(value => value + 1)}>Try again</button>
+      </div>}
+      {!hasMore && !loading && !error && products.length > 0 && <p className="mt-4 text-center text-sm text-muted-foreground">No more products</p>}
+      {showLoadMore && !error && <div ref={sentinelRef} className="h-1" />}
     </>
   );
 };

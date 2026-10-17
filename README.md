@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# YouWanto
 
-## Getting Started
+English product-discovery storefront at https://www.youwanto.com, built with Next.js App Router, React, TypeScript, Prisma, PostgreSQL through the Neon adapter, Tailwind and Auth.js credentials authentication.
 
-First, run the development server:
+## Development
+
+Use Node 22.6+ (Node 24 recommended) and npm. The test runner uses Node's built-in TypeScript stripping. Exact dependency resolutions live in package-lock.json.
 
 ```bash
+npm ci
+cp .env.example .env.local
+# Fill in a disposable development Neon DATABASE_URL and generate AUTH_SECRET locally.
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Next.js reads `.env.local`; Prisma CLI reads `.env` or exported environment variables. For CLI database commands, explicitly load the same development variables in your shell. Never point a local seed at the production database.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+A new development database needs the checked-in migration applied with `npx prisma migrate deploy` after exporting DATABASE_URL. `npm ci` generates the Prisma client via postinstall. Credentials auth additionally requires AUTH_SECRET. No provider credentials belong in source control.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Checks
 
-## Learn More
+```bash
+npm test
+npm run typecheck
+npm run lint
+npm run build
+```
 
-To learn more about Next.js, take a look at the following resources:
+Tests cover catalog query validation, ordering, currency isolation and pagination without a database. Type checking needs the generated Prisma client. A full build requires database access because product and category routes enumerate records in generateStaticParams, and Google Fonts access for Inter. See [verification](docs/verification.md) for known baseline failures and browser acceptance.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Product behavior
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `/`: GBP catalog with newest/price/name sorting, category and brand filtering, price range and infinite scroll.
+- `/products/[slug]`: product gallery, variant selection, prices, availability, description and related products.
+- `/[...slug]`: hierarchical category collections and facets.
+- `/product/[slug]`: older detail route; retained for existing links.
+- `/sign-in`, `/sign-up`: credentials authentication.
+- `/cart`: legacy cart interface. There is no implemented payment/order checkout.
+- `/api/products`: validated, deterministic catalog pagination.
 
-## Deploy on Vercel
+Partner products open the retailer's website. The retailer handles the transaction, final availability, shipping and returns. Do not describe the existing cart as a complete ecommerce checkout.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Documentation
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Start with [documentation index](docs/README.md), [architecture](docs/architecture.md), [development workflow](docs/development.md), [roadmap](docs/roadmap.md), and [UX audit](docs/ux-audit.md). Repository instructions are in [AGENTS.md](AGENTS.md).
