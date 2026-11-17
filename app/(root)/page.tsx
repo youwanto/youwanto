@@ -2,14 +2,18 @@ import { prisma } from "@/db/prisma";
 import { Product } from "@/types";
 import InfiniteProductList from "@/components/product/infinite-product-list";
 
-const PAGE_SIZE = 12;
+import { HOME_FEED_PAGE_SIZE } from "@/lib/constants";
+
+// The header no longer reads the session on the server, so this page is cached; refresh it hourly
+export const revalidate = 3600;
 
 const Homepage = async () => {
   const [moreLatestProducts, categoryRows, brandRows, priceAgg] = await Promise.all([
     prisma.product.findMany({
-      take: PAGE_SIZE,
+      take: HOME_FEED_PAGE_SIZE,
       where: { isActive: true },
-      orderBy: { createdAt: "desc" },
+      // Must match the default sort of /api/products so the cursor lines up
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
     }),
     prisma.category.findMany({
       where: { level: 2 },
@@ -32,10 +36,10 @@ const Homepage = async () => {
   const latestProducts = moreLatestProducts as Product[];
 
   const nextCursor =
-    moreLatestProducts.length > 0
+    moreLatestProducts.length === HOME_FEED_PAGE_SIZE
       ? moreLatestProducts[moreLatestProducts.length - 1].id
       : null;
-  const categories = categoryRows.map((row) => row.name).filter(Boolean);
+  const categories = categoryRows.filter((row) => row.name && row.path);
   const brands = brandRows.map((row) => row.brand).filter((b): b is string => Boolean(b));
   const priceMin = Number(priceAgg._min.price ?? 0);
   const priceMax = Number(priceAgg._max.price ?? 0);

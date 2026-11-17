@@ -1,93 +1,68 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db/prisma";
 import { Prisma } from "@prisma/client";
+import { z } from "zod";
+import { HOME_FEED_PAGE_SIZE } from "@/lib/constants";
 
-const NEW_TAKE = 20;   // 70%
-const OLD_TAKE = 10;   // 30%
+const querySchema = z.object({
+  cursor: z.string().uuid().optional(),
+  category: z.string().min(1).max(200).optional(), // category path, e.g. "women/outerwear"
+  brand: z.string().min(1).max(200).optional(),
+  minPrice: z.coerce.number().min(0).optional(),
+  maxPrice: z.coerce.number().min(0).optional(),
+  sort: z.enum(["newest", "price-asc", "price-desc", "name-asc"]).default("newest"),
+});
+
+// `id` is the tie-breaker so cursor pagination is stable when values repeat
+const ORDER_BY: Record<z.infer<typeof querySchema>["sort"], Prisma.ProductOrderByWithRelationInput[]> = {
+  "newest": [{ createdAt: "desc" }, { id: "asc" }],
+  "price-asc": [{ price: "asc" }, { id: "asc" }],
+  "price-desc": [{ price: "desc" }, { id: "asc" }],
+  "name-asc": [{ name: "asc" }, { id: "asc" }],
+};
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const cursor = searchParams.get("cursor");
-  const category = searchParams.get("category");
-  const brand = searchParams.get("brand");
-  const minPrice = Number(searchParams.get("minPrice") ?? "0");
-  const maxPrice = Number(searchParams.get("maxPrice") ?? "0");
-  const sort = searchParams.get("sort") ?? "";
+  const parsed = querySchema.safeParse(Object.fromEntries(searchParams));
 
-  const priceFilter =
-    Number.isFinite(minPrice) && Number.isFinite(maxPrice) && maxPrice > 0
-      ? {
-          gte: minPrice,
-          lte: maxPrice,
-        }
-      : undefined;
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid query parameters" }, { status: 400 });
+  }
 
-  const baseWhere = {
+  const { cursor, category, brand, minPrice, maxPrice, sort } = parsed.data;
+
+  const price: Prisma.DecimalFilter<"Product"> = {};
+  if (minPrice !== undefined) price.gte = minPrice;
+  if (maxPrice !== undefined && maxPrice > 0) price.lte = maxPrice;
+
+  const where: Prisma.ProductWhereInput = {
     isActive: true,
     ...(category
-      ? { categories: { some: { category: { path: { startsWith: category } } } } }
+      ? {
+          categories: {
+            some: {
+              category: { OR: [{ path: category }, { path: { startsWith: `${category}/` } }] },
+            },
+          },
+        }
       : {}),
     ...(brand ? { brand } : {}),
-    ...(priceFilter ? { price: priceFilter } : {}),
+    ...(Object.keys(price).length > 0 ? { price } : {}),
   };
 
-  const orderBy: Prisma.ProductOrderByWithRelationInput =
-    sort === "price-asc"
-      ? { price: "asc" }
-      : sort === "price-desc"
-      ? { price: "desc" }
-      : sort === "name-asc"
-      ? { name: "asc" }
-      : { createdAt: "desc" };
-
-  // 1. 新数据 → 按 createdAt 降序抓一些
-  let newestBatch;
-
-  if (cursor) {
-    newestBatch = await prisma.product.findMany({
-      take: NEW_TAKE,
-      skip: 1,
-      cursor: { id: cursor },
-      where: baseWhere,
-      orderBy,
-    });
-  } else {
-    newestBatch = await prisma.product.findMany({
-      take: NEW_TAKE,
-      where: baseWhere,
-      orderBy,
-    });
-  }
-
-    // 2. 老数据 → 从更低优先级的 createdAt 区间随机抓一些
-  const oldestBatch = await prisma.product.findMany({
-    take: OLD_TAKE,
-    where: {
-      ...baseWhere,
-      // 这里我们只抓比最新区块「更老」的商品（安全）
-      createdAt: {
-        lt: newestBatch[0]?.createdAt,
-      },
-    },
-    orderBy: {
-      createdAt: "asc",  // 先按老排
-    },
+  // Fetch one extra row to know whether another page exists
+  const rows = await prisma.product.findMany({
+    where,
+    orderBy: ORDER_BY[sort],
+    take: HOME_FEED_PAGE_SIZE + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
 
-  // 3. 合并
-  const combined = [...newestBatch, ...oldestBatch];
-
-  // 4. 洗牌（简单随机）
-  for (let i = combined.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [combined[i], combined[j]] = [combined[j], combined[i]];
-  }
-
-  // 5. nextCursor 基于「最新」的 block（分页安全）
-  const lastNewest = newestBatch[newestBatch.length - 1];
+  const hasMore = rows.length > HOME_FEED_PAGE_SIZE;
+  const items = hasMore ? rows.slice(0, HOME_FEED_PAGE_SIZE) : rows;
 
   return NextResponse.json({
-    items: combined,
-    nextCursor: lastNewest?.id ?? null,
+    items,
+    nextCursor: hasMore ? items[items.length - 1].id : null,
   });
 }

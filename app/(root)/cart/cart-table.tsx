@@ -16,9 +16,9 @@ const getLineTotal = (item: CartItem) =>
 
 const CartTable = ({ cart }: { cart?: Cart }) => {
   const items = cart?.items ?? [];
-  const currency = items[0]?.currency ?? "USD";
+  const currency = items[0]?.currency ?? "GBP";
   const handleRemoveItem = async (item: CartItem) => {
-    const res = await removeItemCompletely(item.productId);
+    const res = await removeItemCompletely(item.productId, item.variantId);
     if (!res.success) {
       toast.error(res.message || "Failed to remove item.");
       return;
@@ -70,7 +70,7 @@ const CartTable = ({ cart }: { cart?: Cart }) => {
           <div className="divide-y">
             {items.map((item) => (
               <div
-                key={item.productId}
+                key={`${item.productId}:${item.variantId ?? ''}`}
                 className="grid grid-cols-1 gap-4 px-6 py-5 md:grid-cols-12 md:items-center"
               >
                 <div className="flex gap-4 md:col-span-6">
@@ -84,9 +84,14 @@ const CartTable = ({ cart }: { cart?: Cart }) => {
                     />
                   </div>
                   <div className="flex flex-col gap-2">
-                    <Link href={`/product/${item.slug}`} className="font-medium">
+                    <Link href={`/products/${item.slug}`} className="font-medium">
                       {item.name}
                     </Link>
+                    {item.size || item.color ? (
+                      <div className="text-sm text-muted-foreground">
+                        {[item.color, item.size].filter(Boolean).join(' / ')}
+                      </div>
+                    ) : null}
                     <div className="text-xs text-muted-foreground">
                       Free returns within 30 days
                     </div>
@@ -101,15 +106,7 @@ const CartTable = ({ cart }: { cart?: Cart }) => {
                     <div className="text-xs uppercase text-muted-foreground">Qty</div>
                     <AddToCart
                       cart={cart}
-                      item={{
-                        productId: item.productId,
-                        name: item.name,
-                        quantity: 1,
-                        slug: item.slug,
-                        price: item.price,
-                        currency: item.currency,
-                        image: item.image,
-                      }}
+                      item={item}
                     />
                   </div>
                   <div className="space-y-1 text-right">
@@ -133,15 +130,7 @@ const CartTable = ({ cart }: { cart?: Cart }) => {
                 <div className="hidden md:block md:col-span-2 md:text-center">
                   <AddToCart
                     cart={cart}
-                    item={{
-                      productId: item.productId,
-                      name: item.name,
-                      quantity: 1,
-                      slug: item.slug,
-                      price: item.price,
-                      currency: item.currency,
-                      image: item.image,
-                    }}
+                    item={item}
                   />
                 </div>
                 <div className="hidden md:block md:col-span-2 md:text-right">

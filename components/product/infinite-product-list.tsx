@@ -8,10 +8,15 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 type Props = {
   initialProducts: Product[];
   initialCursor: string | null;
-  categories: string[];
+  categories: { name: string; path: string }[];
   brands: string[];
   priceRange: { min: number; max: number };
 };
+
+const DEFAULT_SORT = "newest";
+
+const formatPrice = (value: number) =>
+  new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 0 }).format(value);
 
 const InfiniteProductList = ({ initialProducts, initialCursor, categories, brands, priceRange }: Props) => {
   const [products, setProducts] = useState<Product[]>(() => initialProducts);
@@ -22,7 +27,7 @@ const InfiniteProductList = ({ initialProducts, initialCursor, categories, brand
   const [selectedBrand, setSelectedBrand] = useState<string>("All");
   const [priceMin, setPriceMin] = useState<number>(Math.floor(priceRange.min));
   const [priceMax, setPriceMax] = useState<number>(Math.ceil(priceRange.max));
-  const [sortKey, setSortKey] = useState<string>("price-asc");
+  const [sortKey, setSortKey] = useState<string>(DEFAULT_SORT);
 
   const normalizedPrice = useMemo(() => {
     const min = Math.min(priceMin, priceMax);
@@ -53,7 +58,11 @@ const InfiniteProductList = ({ initialProducts, initialCursor, categories, brand
         nextCursor: string | null;
       };
 
-      setProducts((prev) => [...prev, ...data.items]);
+      // Guard against duplicates if the catalogue changes between pages
+      setProducts((prev) => {
+        const seen = new Set(prev.map((product) => product.id));
+        return [...prev, ...data.items.filter((product) => !seen.has(product.id))];
+      });
       setCursor(data.nextCursor);
       setHasMore(!!data.nextCursor);
     } catch (error) {
@@ -61,7 +70,7 @@ const InfiniteProductList = ({ initialProducts, initialCursor, categories, brand
     } finally {
       setLoading(false);
     }
-  }, [cursor, loading, selectedCategory, selectedBrand, normalizedPrice.min, normalizedPrice.max]);
+  }, [cursor, loading, selectedCategory, selectedBrand, normalizedPrice.min, normalizedPrice.max, sortKey]);
 
   // observer now integrates cleanly
   useEffect(() => {
@@ -82,13 +91,15 @@ const InfiniteProductList = ({ initialProducts, initialCursor, categories, brand
   }, [loadMore, hasMore]); // loadMore is safe now
 
   const activeFilters: string[] = [];
-  if (selectedCategory !== "All") activeFilters.push(selectedCategory);
+  if (selectedCategory !== "All") {
+    activeFilters.push(categories.find((category) => category.path === selectedCategory)?.name ?? selectedCategory);
+  }
   if (selectedBrand !== "All") activeFilters.push(selectedBrand);
   if (
     normalizedPrice.min > priceRange.min ||
     normalizedPrice.max < priceRange.max
   ) {
-    activeFilters.push(`$${normalizedPrice.min}-${normalizedPrice.max}`);
+    activeFilters.push(`${formatPrice(normalizedPrice.min)}–${formatPrice(normalizedPrice.max)}`);
   }
 
   const resetFilters = () => {
@@ -96,7 +107,7 @@ const InfiniteProductList = ({ initialProducts, initialCursor, categories, brand
     setSelectedBrand("All");
     setPriceMin(Math.floor(priceRange.min));
     setPriceMax(Math.ceil(priceRange.max));
-    setSortKey("price-asc");
+    setSortKey(DEFAULT_SORT);
   };
 
   const showLoadMore = hasMore;
@@ -106,18 +117,18 @@ const InfiniteProductList = ({ initialProducts, initialCursor, categories, brand
       <div>
         <p className="text-xs font-medium uppercase text-muted-foreground">Category</p>
         <div className="mt-2 flex flex-wrap gap-2">
-          {["All", ...categories].map((category) => (
+          {[{ name: "All", path: "All" }, ...categories].map((category) => (
             <button
-              key={category}
+              key={category.path}
               type="button"
-              onClick={() => setSelectedCategory(category)}
+              onClick={() => setSelectedCategory(category.path)}
               className={
-                category === selectedCategory
+                category.path === selectedCategory
                   ? "rounded-full border border-foreground bg-foreground px-3 py-1 text-xs text-background"
                   : "rounded-full border px-3 py-1 text-xs text-muted-foreground hover:border-foreground/60 hover:text-foreground"
               }
             >
-              {category}
+              {category.name}
             </button>
           ))}
         </div>
@@ -145,8 +156,8 @@ const InfiniteProductList = ({ initialProducts, initialCursor, categories, brand
         <p className="text-xs font-medium uppercase text-muted-foreground">Price range</p>
         <div className="mt-3 space-y-3">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>${normalizedPrice.min}</span>
-            <span>${normalizedPrice.max}</span>
+            <span>{formatPrice(normalizedPrice.min)}</span>
+            <span>{formatPrice(normalizedPrice.max)}</span>
           </div>
           <div className="relative h-8">
             <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-muted" />
@@ -179,7 +190,15 @@ const InfiniteProductList = ({ initialProducts, initialCursor, categories, brand
     </div>
   );
 
+  // The server already rendered the default view, so only refetch once a filter changes
+  const isFirstRender = useRef(true);
+
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
     const fetchFiltered = async () => {
       setLoading(true);
       try {
@@ -260,6 +279,7 @@ const InfiniteProductList = ({ initialProducts, initialCursor, categories, brand
                 onChange={(event) => setSortKey(event.target.value)}
                 className="rounded-full border bg-background px-3 py-2 text-xs"
               >
+                <option value="newest">Newest</option>
                 <option value="price-asc">Price: low to high</option>
                 <option value="price-desc">Price: high to low</option>
                 <option value="name-asc">Name A-Z</option>

@@ -11,6 +11,12 @@ const nextConfig: NextConfig = {
     ],
     unoptimized: true,
   },
+  async redirects() {
+    return [
+      // Legacy PDP URL → canonical PDP URL
+      { source: '/product/:slug', destination: '/products/:slug', permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

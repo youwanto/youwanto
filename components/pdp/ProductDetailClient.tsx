@@ -29,7 +29,6 @@ const ProductDetailClient = ({ product }: ProductDetailClientProps) => {
   const hasSizeOptions = product.variants.some((variant) => Boolean(variant.size?.trim()));
   const displayVariant = selectedVariant ?? previewVariant ?? lowestVariant;
   const buyVariant = selectedVariant ?? (!hasSizeOptions ? displayVariant : null);
-  const displayImage = displayVariant?.imageUrl || displayVariant?.images?.[0] || baseImages[0] || '/images/logo.svg';
   const stockLabel = !displayVariant?.inStock
     ? 'Out of stock'
     : (displayVariant.stockQty ?? 0) > 0 && (displayVariant.stockQty ?? 0) <= 3
@@ -68,7 +67,7 @@ const ProductDetailClient = ({ product }: ProductDetailClientProps) => {
           </Badge>
         </div>
 
-        <BuyButton product={product} variant={buyVariant} image={displayImage} disabled={hasSizeOptions && !selectedVariant} />
+        <BuyButton product={product} variant={buyVariant} disabled={hasSizeOptions && !selectedVariant} />
 
         {product.description ? (
           <div className="space-y-3 border-t pt-6">

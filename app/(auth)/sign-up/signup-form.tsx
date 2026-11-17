@@ -41,11 +41,11 @@ const SignUpForm = () => {
                 </div>
                 <div>
                     <Label htmlFor="password">Password</Label>
-                    <Input type="password" id="password" name="password" required defaultValue={SIGNUP_DEFAULT_VALUES.password} autoComplete="current-password"/>
+                    <Input type="password" id="password" name="password" required defaultValue={SIGNUP_DEFAULT_VALUES.password} autoComplete="new-password"/>
                 </div>
                 <div>
                     <Label htmlFor="confirmPassword">Confirm Password</Label>
-                    <Input type="password" id="confirmPassword" name="confirmPassword" required defaultValue={SIGNUP_DEFAULT_VALUES.confirmPassword} autoComplete="current-password"/>
+                    <Input type="password" id="confirmPassword" name="confirmPassword" required defaultValue={SIGNUP_DEFAULT_VALUES.confirmPassword} autoComplete="new-password"/>
                 </div>
                 <div>
                     <SignUpButton />

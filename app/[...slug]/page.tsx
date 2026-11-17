@@ -9,6 +9,9 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { prisma } from '@/db/prisma';
+import { APP_NAME } from '@/lib/constants';
+
+const DEFAULT_PAGE_SIZE = 24;
 
 type CollectionPageProps = {
   params: Promise<{ slug: string[] }>;
@@ -23,20 +26,47 @@ export async function generateStaticParams() {
   return categories.map((category) => ({ slug: category.path.split('/') }));
 }
 
-export async function generateMetadata({ params }: CollectionPageProps): Promise<Metadata> {
-  const { slug } = await params;
+// Invalid query strings (e.g. ?page=abc) fall back to the unfiltered collection instead of erroring
+const parseCollectionQuery = (
+  rawSearchParams: Record<string, string | string[] | undefined>,
+  path: string
+): CollectionQuery => {
+  const parsed = collectionQuerySchema.safeParse({ ...rawSearchParams, path });
+  return parsed.success ? parsed.data : collectionQuerySchema.parse({ path });
+};
+
+export async function generateMetadata({ params, searchParams }: CollectionPageProps): Promise<Metadata> {
+  const [{ slug }, rawSearchParams] = await Promise.all([params, searchParams]);
   const path = slug.join('/');
   const category = await getCategoryByPath(path);
 
-  if (!category) return {};
+  if (!category) notFound();
+
+  const query = parseCollectionQuery(rawSearchParams, path);
+  const isFilteredView =
+    query.colors.length > 0 ||
+    query.sizes.length > 0 ||
+    query.materials.length > 0 ||
+    query.brands.length > 0 ||
+    query.minPrice !== undefined ||
+    query.maxPrice !== undefined ||
+    query.inStock ||
+    query.sort !== 'newest' ||
+    query.limit !== DEFAULT_PAGE_SIZE;
+  const canonical = query.page > 1 ? `/${path}?page=${query.page}` : `/${path}`;
+  const description = `Shop ${category.name} at ${APP_NAME}. Premium fashion with free delivery.`;
 
   return {
-    title: `${category.name} | YouWanto`,
-    description: `Shop ${category.name} at YouWanto. Premium fashion with free delivery.`,
+    // The root layout appends the site name via the title template
+    title: query.page > 1 ? `${category.name} - Page ${query.page}` : category.name,
+    description,
+    alternates: { canonical },
+    // Filtered/sorted variants are duplicates of the base collection: keep them out of the index
+    ...(isFilteredView ? { robots: { index: false, follow: true } } : {}),
     openGraph: {
-      title: `${category.name} | YouWanto`,
-      description: `Shop ${category.name} at YouWanto.`,
-      url: `https://youwanto.com/${path}`,
+      title: category.name,
+      description,
+      url: canonical,
     },
   };
 }
@@ -106,7 +136,12 @@ const CollectionContent = async ({
 const CollectionPage = async ({ params, searchParams }: CollectionPageProps) => {
   const [{ slug }, rawSearchParams] = await Promise.all([params, searchParams]);
   const path = slug.join('/');
-  const query = collectionQuerySchema.parse({ ...rawSearchParams, path });
+
+  // Resolve the category before streaming starts so unknown URLs are real 404s
+  const category = await getCategoryByPath(path);
+  if (!category) notFound();
+
+  const query = parseCollectionQuery(rawSearchParams, path);
   const dataPromise = getCollectionData(query);
 
   return (
