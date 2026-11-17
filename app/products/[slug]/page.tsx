@@ -16,10 +16,17 @@ type ProductPageProps = {
 
 export const revalidate = 3600;
 
+// Pre-rendering every product made deployments take ~12 extra minutes (5,000+ pages, each
+// querying the database). Only the newest products are built up front; every other product
+// page is rendered on its first visit and then cached like the rest (see `revalidate`).
+const PRERENDERED_PRODUCTS = 200;
+
 export async function generateStaticParams() {
   const products = await prisma.product.findMany({
     where: { isActive: true },
     select: { slug: true },
+    orderBy: { createdAt: 'desc' },
+    take: PRERENDERED_PRODUCTS,
   });
 
   return products.map((product) => ({ slug: product.slug }));
