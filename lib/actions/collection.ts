@@ -4,6 +4,7 @@ import { prisma } from '@/db/prisma';
 import { collectionQuerySchema } from '@/lib/validator';
 import { convertToPlainObject } from '@/lib/utils';
 import { Category, Prisma } from '@prisma/client';
+import { unstable_cache } from 'next/cache';
 import { z } from 'zod';
 
 export type CollectionQuery = z.infer<typeof collectionQuerySchema>;
@@ -113,7 +114,7 @@ export async function getBreadcrumb(path: string): Promise<Category[]> {
   });
 }
 
-export async function getCollectionFacets(path: string): Promise<FacetCounts> {
+async function computeCollectionFacets(path: string): Promise<FacetCounts> {
   const pathPrefix = `${path}/%`;
   const baseWhere = Prisma.sql`p."isActive" = true AND (c.path = ${path} OR c.path LIKE ${pathPrefix})`;
 
@@ -181,6 +182,15 @@ export async function getCollectionFacets(path: string): Promise<FacetCounts> {
   };
 }
 
+// Facets only depend on the category path (not on the active filters), so cache them
+const getCachedCollectionFacets = unstable_cache(computeCollectionFacets, ['collection-facets'], {
+  revalidate: 3600,
+});
+
+export async function getCollectionFacets(path: string): Promise<FacetCounts> {
+  return getCachedCollectionFacets(path);
+}
+
 export async function getCollectionData(params: CollectionQuery): Promise<CollectionResult | null> {
   const category = await getCategoryByPath(params.path);
 
@@ -210,7 +220,7 @@ export async function getCollectionData(params: CollectionQuery): Promise<Collec
           take: limit,
           include: productInclude(variantWhere),
         })
-      : await getProductsSortedByVariantPrice(where, variantWhere, params.sort, effectiveSkip, limit);
+      : await getProductsSortedByVariantPrice(params, variantWhere, params.sort, effectiveSkip, limit);
 
   return convertToPlainObject({
     category,
@@ -223,45 +233,54 @@ export async function getCollectionData(params: CollectionQuery): Promise<Collec
   }) as unknown as CollectionResult;
 }
 
+// Sorts and paginates in SQL by each product's cheapest matching in-stock variant.
+// The conditions below must stay in sync with getProductWhere / getVariantPriceWhere.
 async function getProductsSortedByVariantPrice(
-  where: Prisma.ProductWhereInput,
+  params: CollectionQuery,
   variantWhere: Prisma.ProductVariantWhereInput,
   sort: 'price_asc' | 'price_desc',
   skip: number,
   limit: number
 ) {
-  const candidates = await prisma.product.findMany({
-    where,
-    select: {
-      id: true,
-      createdAt: true,
-      variants: {
-        where: variantWhere,
-        orderBy: { price: 'asc' },
-        take: 1,
-        select: { price: true },
-      },
-    },
-  });
+  const pathPrefix = `${params.path}/%`;
+  const textArray = (values: string[]) => Prisma.sql`ARRAY[${Prisma.join(values)}]::text[]`;
 
-  const sortedIds = candidates
-    .sort((left, right) => {
-      const leftVariant = left.variants[0];
-      const rightVariant = right.variants[0];
+  const variantConditions = [Prisma.sql`pv."inStock" = true`];
+  if (params.minPrice !== undefined) variantConditions.push(Prisma.sql`pv.price >= ${params.minPrice}`);
+  if (params.maxPrice !== undefined) variantConditions.push(Prisma.sql`pv.price <= ${params.maxPrice}`);
 
-      if (!leftVariant && !rightVariant) return right.createdAt.getTime() - left.createdAt.getTime();
-      if (!leftVariant) return 1;
-      if (!rightVariant) return -1;
+  const hasVariantFilter = params.inStock || params.minPrice !== undefined || params.maxPrice !== undefined;
 
-      const leftPrice = Number(leftVariant.price);
-      const rightPrice = Number(rightVariant.price);
-      const priceDiff = sort === 'price_asc' ? leftPrice - rightPrice : rightPrice - leftPrice;
+  const conditions = [
+    Prisma.sql`p."isActive" = true`,
+    Prisma.sql`EXISTS (
+      SELECT 1
+      FROM product_categories pc
+      JOIN categories c ON c.id = pc."categoryId"
+      WHERE pc."productId" = p.id AND (c.path = ${params.path} OR c.path LIKE ${pathPrefix})
+    )`,
+  ];
+  if (params.colors.length > 0) conditions.push(Prisma.sql`p.colors && ${textArray(params.colors)}`);
+  if (params.sizes.length > 0) conditions.push(Prisma.sql`p.sizes && ${textArray(params.sizes)}`);
+  if (params.materials.length > 0) conditions.push(Prisma.sql`p.materials && ${textArray(params.materials)}`);
+  if (params.brands.length > 0) conditions.push(Prisma.sql`p.brand IN (${Prisma.join(params.brands)})`);
+  if (hasVariantFilter) conditions.push(Prisma.sql`v.price IS NOT NULL`);
 
-      if (priceDiff !== 0) return priceDiff;
-      return right.createdAt.getTime() - left.createdAt.getTime();
-    })
-    .slice(skip, skip + limit)
-    .map((product) => product.id);
+  const direction = sort === 'price_asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`;
+
+  const rows = await prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
+    SELECT p.id
+    FROM products p
+    LEFT JOIN LATERAL (
+      SELECT MIN(pv.price) AS price
+      FROM product_variants pv
+      WHERE pv."productId" = p.id AND ${Prisma.join(variantConditions, ' AND ')}
+    ) v ON true
+    WHERE ${Prisma.join(conditions, ' AND ')}
+    ORDER BY v.price ${direction} NULLS LAST, p."createdAt" DESC, p.id ASC
+    LIMIT ${limit} OFFSET ${skip}
+  `);
+  const sortedIds = rows.map((row) => row.id);
 
   if (sortedIds.length === 0) return [];
 

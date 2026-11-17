@@ -11,11 +11,10 @@ import { toast } from 'sonner';
 type BuyButtonProps = {
   product: ProductDetail;
   variant: ProductDetailVariant | null;
-  image: string;
   disabled?: boolean;
 };
 
-const BuyButton = ({ product, variant, image, disabled }: BuyButtonProps) => {
+const BuyButton = ({ product, variant, disabled }: BuyButtonProps) => {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const isDisabled = disabled || !variant || !variant.inStock || isPending;
@@ -44,18 +43,7 @@ const BuyButton = ({ product, variant, image, disabled }: BuyButtonProps) => {
     if (!variant) return;
 
     startTransition(async () => {
-      const result = await addItemToCart({
-        productId: product.id,
-        variantId: variant.id,
-        name: product.name,
-        slug: product.slug,
-        price: variant.price,
-        currency: variant.currency || product.currency,
-        quantity: 1,
-        image,
-        size: variant.size,
-        color: variant.color,
-      });
+      const result = await addItemToCart({ productId: product.id, variantId: variant.id });
 
       if (!result.success) {
         toast.error(result.message || 'Failed to add item to cart.');

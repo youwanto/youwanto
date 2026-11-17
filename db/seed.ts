@@ -4,11 +4,10 @@
 // Phase B: Parse raw feed + upsert Products / Variants / Categories
 // ============================================================
 
-import { PrismaClient, Gender } from '@prisma/client';
+import { PrismaClient, Gender, Prisma } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
 import { RawProductSchema } from '@/lib/validator';
-import { RawProductInput } from '@/types';
 
 const prisma = new PrismaClient();
 
@@ -347,7 +346,7 @@ async function seedProducts() {
     .filter(l => l.length > 0 && !l.startsWith('HDR|') && !l.startsWith('TRL|'));
 
   const feedBatchId = `feed-${new Date().toISOString()}`;
-  const rawProducts: any[] = [];
+  const rawProducts: Prisma.RawProductCreateManyInput[] = [];
   const groups = new Map<string, GroupItem[]>();
 
   for (const line of dataLines) {
@@ -392,10 +391,11 @@ async function seedProducts() {
     // Map validated data to new Prisma RawProduct shape
     rawProducts.push({
       ...rawProduct,
+      source: 'AWIN',
       productId: productIdFeed || sku,
       feedDate: new Date(),
       rawPayload: rawProduct.rawData,
-    } as any);
+    });
 
     // --- Group by styleCode / sku ---
     const key = styleCode || sku || productIdFeed || name;
@@ -436,7 +436,6 @@ async function seedProducts() {
       slug = `${slug}-${counter}`;
     }
     usedSlugs.add(slug);
-    const totalStock = items.reduce((s, i) => s + i.quantity, 0);
     const minPrice = Math.min(...items.map(i => i.price).filter(p => p > 0)) || 0;
     const mainCurrency = base.currency || 'GBP';
     const anyActive = items.some(i => i.stockStatus.toLowerCase() === 'in-stock');

@@ -7,7 +7,7 @@ import{ addItemToCart, removeItemFromCart } from "@/lib/actions/cart.actions";
 import { toast } from "sonner";
 import { useTransition } from "react";
 
-const AddToCart = ({ cart, item }: { cart?: Cart; item: Omit<CartItem, "cartId"> }) => {
+const AddToCart = ({ cart, item }: { cart?: Cart; item: CartItem }) => {
     const router = useRouter();
 
     const [isPending, startTransition] = useTransition();
@@ -15,7 +15,7 @@ const AddToCart = ({ cart, item }: { cart?: Cart; item: Omit<CartItem, "cartId">
     const handleAddToCart = async () => {
         startTransition(async () => {
             // Execute the add items to cart action
-            const res = await addItemToCart(item);
+            const res = await addItemToCart({ productId: item.productId, variantId: item.variantId });
     
             // Display appropriate toast message based on the result
             if (!res.success) {
@@ -38,7 +38,7 @@ const AddToCart = ({ cart, item }: { cart?: Cart; item: Omit<CartItem, "cartId">
     // Handle removing item from cart
     const handleRemoveFromCart = async () => {
         startTransition(async () => {
-            const res = await removeItemFromCart(item.productId);
+            const res = await removeItemFromCart(item.productId, item.variantId);
             if (!res.success) {
                 toast.error(res.message || "Failed to remove item from cart.");
                 return;
@@ -55,7 +55,9 @@ const AddToCart = ({ cart, item }: { cart?: Cart; item: Omit<CartItem, "cartId">
         });
     };
     // Check if the item is already in the cart
-    const existItem = cart?.items.find((x) => x.productId === item.productId);
+    const existItem = cart?.items.find(
+        (x) => x.productId === item.productId && (x.variantId ?? null) === (item.variantId ?? null)
+    );
 
     return existItem ? (
         <div className="flex items-center gap-2">

@@ -135,6 +135,13 @@ export const cartItemSchema = z.object({
   color: z.string().optional().nullable(),
 });
 
+// What the client is allowed to send when adding/removing a cart line.
+// Everything else (price, name, image…) is read from the database.
+export const addToCartSchema = z.object({
+  productId: z.string().uuid('Invalid product'),
+  variantId: z.string().uuid('Invalid product option').optional().nullable(),
+});
+
 export const insertCartSchema = z.object({
   items:          z.array(cartItemSchema),
   itemsPrice:     formatPrice,

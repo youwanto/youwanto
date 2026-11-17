@@ -4,6 +4,8 @@ import RelatedProducts from '@/components/pdp/RelatedProducts';
 import Breadcrumb from '@/components/shared/Breadcrumb';
 import Header from '@/components/shared/header';
 import { prisma } from '@/db/prisma';
+import { APP_NAME } from '@/lib/constants';
+import { buildBreadcrumbJsonLd, buildProductJsonLd, serializeJsonLd } from '@/lib/seo';
 import { getProductBySlug } from '@/lib/actions/product';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -27,17 +29,24 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   const { slug } = await params;
   const product = await getProductBySlug(slug);
 
-  if (!product) return {};
+  if (!product) notFound();
 
   const image = product.imageUrl ?? product.images[0];
+  // The root layout appends the site name via the title template
+  const title = product.brand ? `${product.name} | ${product.brand}` : product.name;
+  const description =
+    product.shortDescription ?? product.description?.slice(0, 155) ?? `Shop ${product.name} at ${APP_NAME}.`;
+  const canonical = `/products/${product.slug}`;
 
   return {
-    title: `${product.name} | ${product.brand ?? 'YouWanto'}`,
-    description: product.shortDescription ?? product.description?.slice(0, 155) ?? `Shop ${product.name} at YouWanto.`,
+    title,
+    description,
+    alternates: { canonical },
     openGraph: {
-      title: `${product.name} | ${product.brand ?? 'YouWanto'}`,
+      title,
+      description,
       images: image ? [{ url: image }] : undefined,
-      url: `https://youwanto.com/products/${product.slug}`,
+      url: canonical,
     },
   };
 }
@@ -60,6 +69,12 @@ const ProductPage = async ({ params }: ProductPageProps) => {
     <div className="flex min-h-screen flex-col">
       <Header />
       <main className="wrapper flex-1 space-y-8 py-8">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: serializeJsonLd([buildProductJsonLd(product), buildBreadcrumbJsonLd(breadcrumbItems)]),
+          }}
+        />
         <Breadcrumb items={breadcrumbItems} />
         <ProductDetailClient product={product} />
         {primaryCategory ? (
