@@ -33,6 +33,32 @@ npm run dev
 | `/sign-in`, `/sign-up` | Authentication |
 | `/sitemap.xml`, `/robots.txt` | Generated from the catalogue |
 
+## Importing discounted products
+
+`npm run import:deals` loads the discounted products from the downloaded affiliate feeds
+(Rakuten and The Outnet) into the catalogue. It is safe to run every day:
+
+- products are matched on source + merchant + style, so a re-run updates prices and stock instead of duplicating;
+- products that are no longer discounted, or left the feed, are switched off (`isActive = false`), never deleted;
+- affiliate tracking links are stored untouched;
+- a feed older than 3 days is skipped, and a merchant whose range mostly disappeared is not switched off without `--force`;
+- products whose feed text mentions Black Friday get the `black-friday` search tag, and the log line counts them.
+
+```bash
+# Read and map the feeds, write nothing
+npm run import:deals -- --feeds /path/to/raw_data --dry-run
+
+# Import
+npm run import:deals -- --feeds /path/to/raw_data
+```
+
+`--feeds` is the folder that holds `rakuten/` and `partnerize_outnet/` (or set `FEED_RAW_DIR`).
+Other options are listed at the top of [`scripts/import-deals.ts`](scripts/import-deals.ts);
+the mapping rules live in [`lib/feeds/`](lib/feeds).
+
+Only the first `PRERENDER_PRODUCT_COUNT` product pages (default 200) are built at deploy time;
+the rest are rendered on their first visit and cached for an hour.
+
 ## Checks
 
 ```bash
