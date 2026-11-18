@@ -114,6 +114,10 @@ export async function getBreadcrumb(path: string): Promise<Category[]> {
   });
 }
 
+// A large category has thousands of distinct values (materials are free text). Listing them all
+// made collection pages weigh over 1 MB, so only the most common values are offered as filters.
+const MAX_FACET_OPTIONS = 40;
+
 async function computeCollectionFacets(path: string): Promise<FacetCounts> {
   const pathPrefix = `${path}/%`;
   const baseWhere = Prisma.sql`p."isActive" = true AND (c.path = ${path} OR c.path LIKE ${pathPrefix})`;
@@ -128,6 +132,7 @@ async function computeCollectionFacets(path: string): Promise<FacetCounts> {
       WHERE ${baseWhere}
       GROUP BY value
       ORDER BY count DESC, value ASC
+      LIMIT ${MAX_FACET_OPTIONS}
     `),
     prisma.$queryRaw<FacetRow[]>(Prisma.sql`
       SELECT value, COUNT(DISTINCT p.id) AS count
@@ -138,6 +143,7 @@ async function computeCollectionFacets(path: string): Promise<FacetCounts> {
       WHERE ${baseWhere}
       GROUP BY value
       ORDER BY count DESC, value ASC
+      LIMIT ${MAX_FACET_OPTIONS}
     `),
     prisma.$queryRaw<FacetRow[]>(Prisma.sql`
       SELECT value, COUNT(DISTINCT p.id) AS count
@@ -148,6 +154,7 @@ async function computeCollectionFacets(path: string): Promise<FacetCounts> {
       WHERE ${baseWhere}
       GROUP BY value
       ORDER BY count DESC, value ASC
+      LIMIT ${MAX_FACET_OPTIONS}
     `),
     prisma.$queryRaw<FacetRow[]>(Prisma.sql`
       SELECT p.brand AS value, COUNT(DISTINCT p.id) AS count
@@ -157,6 +164,7 @@ async function computeCollectionFacets(path: string): Promise<FacetCounts> {
       WHERE ${baseWhere} AND p.brand IS NOT NULL AND p.brand <> ''
       GROUP BY p.brand
       ORDER BY count DESC, p.brand ASC
+      LIMIT ${MAX_FACET_OPTIONS}
     `),
     prisma.$queryRaw<PriceRangeRow[]>(Prisma.sql`
       SELECT MIN(pv.price) AS min, MAX(pv.price) AS max
@@ -180,6 +188,33 @@ async function computeCollectionFacets(path: string): Promise<FacetCounts> {
       max: Number(priceRange.max ?? 0),
     },
   };
+}
+
+async function computeNonEmptyCategoryPaths(): Promise<string[]> {
+  const rows = await prisma.$queryRaw<{ path: string }[]>(Prisma.sql`
+    SELECT DISTINCT c.path
+    FROM categories c
+    JOIN product_categories pc ON pc."categoryId" = c.id
+    JOIN products p ON p.id = pc."productId"
+    WHERE p."isActive" = true
+  `);
+
+  // A category also counts as non-empty when one of its sub-categories has products
+  const paths = new Set<string>();
+  for (const { path } of rows) {
+    const parts = path.split('/');
+    parts.forEach((_, index) => paths.add(parts.slice(0, index + 1).join('/')));
+  }
+  return [...paths].sort();
+}
+
+const getCachedNonEmptyCategoryPaths = unstable_cache(computeNonEmptyCategoryPaths, ['non-empty-category-paths'], {
+  revalidate: 3600,
+});
+
+/** Paths of the categories that currently show at least one product */
+export async function getNonEmptyCategoryPaths(): Promise<string[]> {
+  return getCachedNonEmptyCategoryPaths();
 }
 
 // Facets only depend on the category path (not on the active filters), so cache them

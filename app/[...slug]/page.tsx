@@ -3,7 +3,12 @@ import ProductGrid from '@/components/collection/ProductGrid';
 import Footer from '@/components/footer';
 import Breadcrumb from '@/components/shared/Breadcrumb';
 import Header from '@/components/shared/header';
-import { CollectionQuery, getCategoryByPath, getCollectionData } from '@/lib/actions/collection';
+import {
+  CollectionQuery,
+  getCategoryByPath,
+  getCollectionData,
+  getNonEmptyCategoryPaths,
+} from '@/lib/actions/collection';
 import { collectionQuerySchema } from '@/lib/validator';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -43,6 +48,7 @@ export async function generateMetadata({ params, searchParams }: CollectionPageP
   if (!category) notFound();
 
   const query = parseCollectionQuery(rawSearchParams, path);
+  const isEmpty = !(await getNonEmptyCategoryPaths()).includes(path);
   const isFilteredView =
     query.colors.length > 0 ||
     query.sizes.length > 0 ||
@@ -54,15 +60,16 @@ export async function generateMetadata({ params, searchParams }: CollectionPageP
     query.sort !== 'newest' ||
     query.limit !== DEFAULT_PAGE_SIZE;
   const canonical = query.page > 1 ? `/${path}?page=${query.page}` : `/${path}`;
-  const description = `Shop ${category.name} at ${APP_NAME}. Premium fashion with free delivery.`;
+  const description = `Shop ${category.name} at ${APP_NAME}: designer fashion from the brands you love, compared in one place.`;
 
   return {
     // The root layout appends the site name via the title template
     title: query.page > 1 ? `${category.name} - Page ${query.page}` : category.name,
     description,
     alternates: { canonical },
-    // Filtered/sorted variants are duplicates of the base collection: keep them out of the index
-    ...(isFilteredView ? { robots: { index: false, follow: true } } : {}),
+    // Filtered/sorted variants are duplicates of the base collection, and a category without
+    // products has nothing to rank: keep both out of the index
+    ...(isFilteredView || isEmpty ? { robots: { index: false, follow: true } } : {}),
     openGraph: {
       title: category.name,
       description,

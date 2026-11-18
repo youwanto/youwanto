@@ -8,7 +8,7 @@ English fashion ecommerce site built with Next.js (App Router), TypeScript, Pris
 npm install
 cp .env.example .env   # then fill in the values
 npx prisma migrate deploy
-npx prisma db seed     # optional: sample catalogue
+npx prisma db seed     # category taxonomy (add SEED_RESET_CATALOGUE=yes to also wipe and load the sample catalogue)
 npm run dev
 ```
 

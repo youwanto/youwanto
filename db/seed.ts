@@ -337,6 +337,13 @@ async function seedProducts() {
     return;
   }
 
+  // This step deletes every product before loading the sample file. The live catalogue is now
+  // filled by `npm run import:deals`, so it only runs when asked for explicitly.
+  if (process.env.SEED_RESET_CATALOGUE !== 'yes') {
+    console.log('ℹ️  Product seed skipped (it wipes the catalogue). Set SEED_RESET_CATALOGUE=yes to run it.');
+    return;
+  }
+
   console.log('📦 Seeding products from raw feed…');
 
   const raw = fs.readFileSync(PRODUCTS_TXT_PATH, 'utf8').trim();
