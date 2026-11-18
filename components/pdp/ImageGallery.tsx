@@ -43,7 +43,9 @@ const ImageGallery = ({ images, selectedImageUrl, alt }: ImageGalleryProps) => {
   }
 
   return (
-    <div className="grid gap-3 md:grid-cols-[72px_1fr]">
+    // The thumbnail column only exists when there are thumbnails; otherwise the main image
+    // would be squeezed into it
+    <div className={cn('grid gap-3', galleryImages.length > 1 && 'md:grid-cols-[72px_1fr]')}>
       {galleryImages.length > 1 ? (
         <div className="order-2 flex gap-2 overflow-x-auto md:order-1 md:flex-col md:overflow-visible">
           {galleryImages.map((image, index) => (

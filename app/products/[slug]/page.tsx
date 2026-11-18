@@ -9,6 +9,7 @@ import { buildBreadcrumbJsonLd, buildProductJsonLd, serializeJsonLd } from '@/li
 import { getProductBySlug } from '@/lib/actions/product';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { cache } from 'react';
 
 type ProductPageProps = {
   params: Promise<{ slug: string }>;
@@ -16,25 +17,31 @@ type ProductPageProps = {
 
 export const revalidate = 3600;
 
-// Pre-rendering every product made deployments take ~12 extra minutes (5,000+ pages, each
-// querying the database). Only the newest products are built up front; every other product
-// page is rendered on its first visit and then cached like the rest (see `revalidate`).
-const PRERENDERED_PRODUCTS = 200;
+// Pre-rendering every product does not scale: 5,000 pages added ~12 minutes to a deployment,
+// and the catalogue is now several times larger. Only the products a visitor meets first are
+// built up front: the top of the home feed, in the same order as the home page shows them.
+// Every other product page is rendered on its first visit and then cached like the rest
+// (see `revalidate`), so only that first visitor waits for the database.
+const PRERENDERED_PRODUCTS = Number(process.env.PRERENDER_PRODUCT_COUNT ?? 200);
 
 export async function generateStaticParams() {
   const products = await prisma.product.findMany({
     where: { isActive: true },
     select: { slug: true },
-    orderBy: { createdAt: 'desc' },
+    // Same order as the home feed (app/(root)/page.tsx)
+    orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
     take: PRERENDERED_PRODUCTS,
   });
 
   return products.map((product) => ({ slug: product.slug }));
 }
 
+// The metadata and the page both need the product: load it once per request
+const loadProduct = cache((slug: string) => getProductBySlug(slug));
+
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const product = await getProductBySlug(slug);
+  const product = await loadProduct(slug);
 
   if (!product) notFound();
 
@@ -60,7 +67,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
 const ProductPage = async ({ params }: ProductPageProps) => {
   const { slug } = await params;
-  const product = await getProductBySlug(slug);
+  const product = await loadProduct(slug);
 
   if (!product) notFound();
 
