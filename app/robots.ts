@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { SERVER_URL } from '@/lib/constants';
+import { absoluteUrl } from '@/lib/seo';
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -10,6 +10,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ['/api/', '/cart', '/sign-in', '/sign-up'],
       },
     ],
-    sitemap: new URL('/sitemap.xml', SERVER_URL).toString(),
+    sitemap: absoluteUrl('/sitemap.xml'),
   };
 }

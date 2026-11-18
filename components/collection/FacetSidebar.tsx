@@ -29,10 +29,23 @@ type FacetGroupProps = {
   onToggle: (name: FacetKey, value: string) => void;
 };
 
+const COLLAPSED_OPTIONS = 8;
+
 const FacetGroup = ({ title, name, values, selected, defaultOpen, onToggle }: FacetGroupProps) => {
   const [open, setOpen] = useState(Boolean(defaultOpen));
+  const [showAll, setShowAll] = useState(false);
 
-  if (values.length === 0) return null;
+  // Only the most common values are offered; a selected value outside that list must stay
+  // visible so it can be unticked
+  const options = [
+    ...values,
+    ...selected.filter((value) => !values.some((option) => option.value === value)).map((value) => ({ value, count: 0 })),
+  ];
+  if (options.length === 0) return null;
+
+  const visibleOptions = showAll
+    ? options
+    : options.filter((option, index) => index < COLLAPSED_OPTIONS || selected.includes(option.value));
 
   return (
     <div className="border-b py-4">
@@ -46,7 +59,7 @@ const FacetGroup = ({ title, name, values, selected, defaultOpen, onToggle }: Fa
       </button>
       {open ? (
         <div className="mt-3 space-y-2">
-          {values.map((option) => (
+          {visibleOptions.map((option) => (
             <label key={option.value} className="flex cursor-pointer items-center justify-between gap-3 text-sm">
               <span className="flex min-w-0 items-center gap-2">
                 <input
@@ -57,9 +70,18 @@ const FacetGroup = ({ title, name, values, selected, defaultOpen, onToggle }: Fa
                 />
                 <span className="truncate">{option.value}</span>
               </span>
-              <span className="text-xs text-muted-foreground">{option.count}</span>
+              {option.count > 0 ? <span className="text-xs text-muted-foreground">{option.count}</span> : null}
             </label>
           ))}
+          {options.length > visibleOptions.length || showAll ? (
+            <button
+              type="button"
+              className="text-xs font-medium underline underline-offset-2"
+              onClick={() => setShowAll((current) => !current)}
+            >
+              {showAll ? 'Show fewer' : `Show ${options.length - visibleOptions.length} more`}
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>
